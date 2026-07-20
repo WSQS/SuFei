@@ -1,0 +1,28 @@
+# Downstream Fork Notes
+
+This is a fork of the upstream repository. To minimize merge conflicts when syncing with upstream, follow these constraints.
+
+## Working Principles
+
+- **CLAUDE.md is read-only**: Never modify the upstream `CLAUDE.md`. All fork-specific instructions and notes belong in this file (`CLAUDE.downstream.md`).
+- **Add, don't modify**: Prefer new files/packages/modules over editing upstream files.
+- **Isolate, don't intrude**: Keep fork-specific changes in dedicated directories or via wrapper/composition patterns.
+- **Localize environment changes**: Use machine-local config (e.g., global Gradle init scripts) instead of editing shared build files.
+
+## Safe vs Risky Changes
+
+| Safe (low conflict risk) | Risky (high conflict risk) |
+|---|---|
+| New files / packages / modules | Editing existing upstream files |
+| New feature directories | Modifying shared components/utilities |
+| Local config (init.gradle, CLAUDE.local.md) | Editing settings.gradle.kts / build.gradle.kts |
+| Extension (new ViewModel/Screen) | Refactoring existing code structure |
+
+## Decision Rule
+
+When tempted to edit an upstream file, first ask: can this be achieved via extension (wrapper/inheritance/composition)? If an edit is unavoidable, keep it small and localized, and call it out in the commit message for easier merge resolution later.
+
+## Branch Strategy
+
+- `main` tracks upstream; keep it clean for syncing.
+- `dev` is the working trunk for this fork's development.

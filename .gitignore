@@ -22,3 +22,6 @@ app/release/
 
 # Signing
 keystore.properties
+
+# Local instructions
+CLAUDE.local.md
