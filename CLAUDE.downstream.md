@@ -26,3 +26,21 @@ When tempted to edit an upstream file, first ask: can this be achieved via exten
 
 - `main` tracks upstream; keep it clean for syncing.
 - `dev` is the working trunk for this fork's development.
+
+## Git Commit Convention
+
+Use the **Angular commit convention**. Commit messages in English only.
+
+Format:
+```
+<type>(<scope>): <subject>
+
+<body>
+```
+
+Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`.
+
+Rules:
+- Subject in imperative mood, lowercase, no trailing period, max 72 chars.
+- Body explains the "why" and "what", wrapped at 72 chars.
+- Only commit when explicitly requested; never commit automatically.
