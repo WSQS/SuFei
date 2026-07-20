@@ -26,6 +26,7 @@ When tempted to edit an upstream file, first ask: can this be achieved via exten
 
 - `main` tracks upstream; keep it clean for syncing.
 - `dev` is the working trunk for this fork's development.
+- Feature work targets `dev` via **Pull Requests** (not direct pushes). Create a feature branch per unit of work, open a PR into `dev`, merge after review.
 
 ## Git Commit Convention
 
