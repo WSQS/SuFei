@@ -23,6 +23,7 @@ import dev.wceng.sufei.ui.navigation.PoetDetail
 import dev.wceng.sufei.ui.navigation.PoetWorks
 import dev.wceng.sufei.ui.navigation.Settings
 import dev.wceng.sufei.ui.navigation.Study
+import dev.wceng.sufei.ui.navigation.PathDetail
 import dev.wceng.sufei.ui.screens.collection.CollectionScreen
 import dev.wceng.sufei.ui.screens.detail.DetailScreen
 import dev.wceng.sufei.ui.screens.detail.DetailViewModel
@@ -35,6 +36,8 @@ import dev.wceng.sufei.ui.screens.poetworks.PoetWorksScreen
 import dev.wceng.sufei.ui.screens.poetworks.PoetWorksViewModel
 import dev.wceng.sufei.ui.screens.settings.SettingsScreen
 import dev.wceng.sufei.ui.screens.study.StudyScreen
+import dev.wceng.sufei.ui.screens.study.PathDetailScreen
+import dev.wceng.sufei.ui.screens.study.PathDetailViewModel
 
 /**
  * 屏幕路由注册模块
@@ -197,9 +200,49 @@ object ScreensModule {
     // fork-specific: Study tab (Reading Paths)
     @IntoSet
     @Provides
-    fun provideStudyEntry(): EntryProviderInstaller = {
+    fun provideStudyEntry(navigator: Navigator): EntryProviderInstaller = {
         entry<Study> {
-            StudyScreen()
+            StudyScreen(
+                onPathClick = { pathId ->
+                    navigator.goTo(PathDetail(pathId))
+                },
+            )
+        }
+    }
+
+    // fork-specific: Path detail (anthology content)
+    @IntoSet
+    @Provides
+    fun providePathDetailEntry(navigator: Navigator): EntryProviderInstaller = {
+        entry<PathDetail>(
+            metadata = NavDisplay.transitionSpec {
+                (slideInVertically(
+                    animationSpec = tween(400),
+                    initialOffsetY = { it / 10 }) + fadeIn()) togetherWith
+                        fadeOut(animationSpec = tween(400))
+            } + NavDisplay.popTransitionSpec {
+                fadeIn(animationSpec = tween(400)) togetherWith
+                        (slideOutVertically(
+                            animationSpec = tween(400),
+                            targetOffsetY = { it / 10 }) + fadeOut())
+            } + NavDisplay.predictivePopTransitionSpec { _ ->
+                fadeIn(animationSpec = tween(400)) togetherWith
+                        (slideOutVertically(
+                            animationSpec = tween(400),
+                            targetOffsetY = { it / 10 }) + fadeOut())
+            }
+        ) { key ->
+            val viewModel = hiltViewModel<PathDetailViewModel, PathDetailViewModel.Factory>(
+                key = key.pathId,
+                creationCallback = { factory -> factory.create(key) },
+            )
+            PathDetailScreen(
+                onBack = { navigator.goBack() },
+                onPoemClick = { poemId ->
+                    navigator.goTo(Detail(poemId))
+                },
+                viewModel = viewModel,
+            )
         }
     }
 }

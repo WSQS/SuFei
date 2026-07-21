@@ -27,6 +27,9 @@ object Settings
 object Study
 
 @Serializable
+data class PathDetail(val pathId: String)
+
+@Serializable
 data class Detail(val id: String)
 
 @Serializable
