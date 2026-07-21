@@ -11,16 +11,19 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
+/**
+ * 研习 Tab：观察全部选集及其阅读进度。
+ *
+ * 首帧为 [StudyUiState.Loading]（stateIn 初始值）；仓库首次发射后
+ * 一律进入 [StudyUiState.Success]（含空列表，由 UI 展示空态）。
+ */
 @HiltViewModel
 class StudyViewModel @Inject constructor(
     readingPathRepository: ReadingPathRepository,
 ) : ViewModel() {
 
     val uiState: StateFlow<StudyUiState> = readingPathRepository.observeAllPaths()
-        .map { paths ->
-            if (paths.isEmpty()) StudyUiState.Loading
-            else StudyUiState.Success(paths)
-        }
+        .map { paths -> StudyUiState.Success(paths) }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
