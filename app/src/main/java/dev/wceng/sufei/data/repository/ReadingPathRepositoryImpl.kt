@@ -10,8 +10,6 @@ import dev.wceng.sufei.data.readingpath.BuiltInAnthologies
 import dev.wceng.sufei.data.readingpath.AnthologyDefinition
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -23,42 +21,51 @@ class ReadingPathRepositoryImpl @Inject constructor(
     private val readingProgressDao: ReadingProgressDao,
 ) : ReadingPathRepository {
 
-    override fun observeAllPaths(): Flow<List<ReadingPath>> = flow {
-        val definitions = BuiltInAnthologies.all
-        val paths = definitions.map { def ->
-            resolvePath(def, readingProgressDao.getByPath(def.id))
-        }
-        emit(paths)
-    }.flowOn(Dispatchers.IO)
+    /**
+     * 观察全表计数——任何路径的进度变化都会触发它重新发射，
+     * 用作"任意进度变更"的脏标志，驱动所有选集的重算。
+     */
+    private val progressTick: Flow<Unit> = readingProgressDao.observeAnyChange().map { }
 
-    override fun observePath(pathId: String): Flow<ReadingPath?> = flow {
-        val def = BuiltInAnthologies.byId(pathId) ?: run { emit(null); return@flow }
-        emit(resolvePath(def, readingProgressDao.getByPath(pathId)))
-    }.flowOn(Dispatchers.IO)
-
-    override fun observePathItems(pathId: String): Flow<List<PathItem>> = flow {
-        val def = BuiltInAnthologies.byId(pathId) ?: run { emit(emptyList()); return@flow }
-        val orderedIds = poemDao.getPoemIdsByTag(def.sourceTag)  // V1: 数据原序占位
-        val readMap = readingProgressDao.getByPath(pathId).associateBy { it.poemId }
-        val items = orderedIds.mapIndexedNotNull { index, poemId ->
-            val entity = poemDao.getPoemById(poemId) ?: return@mapIndexedNotNull null
-            val progress = readMap[poemId]
-            PathItem(
-                poem = Poem(
-                    id = entity.id, sourceUrl = entity.sourceUrl,
-                    title = entity.title, author = entity.author,
-                    dynasty = entity.dynasty, content = entity.content,
-                    tags = entity.tags, notes = entity.notes,
-                    translation = entity.translation, intro = entity.intro,
-                    background = entity.background,
-                ),
-                order = index,
-                isRead = progress != null,
-                readAt = progress?.readAt,
-            )
+    override fun observeAllPaths(): Flow<List<ReadingPath>> = progressTick
+        .map {
+            BuiltInAnthologies.all.map { def ->
+                resolvePath(def, readingProgressDao.getByPath(def.id))
+            }
         }
-        emit(items)
-    }.flowOn(Dispatchers.IO)
+        .flowOn(Dispatchers.IO)
+
+    override fun observePath(pathId: String): Flow<ReadingPath?> = progressTick
+        .map {
+            val def = BuiltInAnthologies.byId(pathId) ?: return@map null
+            resolvePath(def, readingProgressDao.getByPath(pathId))
+        }
+        .flowOn(Dispatchers.IO)
+
+    override fun observePathItems(pathId: String): Flow<List<PathItem>> = progressTick
+        .map {
+            val def = BuiltInAnthologies.byId(pathId) ?: return@map emptyList()
+            val orderedIds = poemDao.getPoemIdsByTag(def.sourceTag)
+            val readMap = readingProgressDao.getByPath(pathId).associateBy { it.poemId }
+            orderedIds.mapIndexedNotNull { index, poemId ->
+                val entity = poemDao.getPoemById(poemId) ?: return@mapIndexedNotNull null
+                val progress = readMap[poemId]
+                PathItem(
+                    poem = Poem(
+                        id = entity.id, sourceUrl = entity.sourceUrl,
+                        title = entity.title, author = entity.author,
+                        dynasty = entity.dynasty, content = entity.content,
+                        tags = entity.tags, notes = entity.notes,
+                        translation = entity.translation, intro = entity.intro,
+                        background = entity.background,
+                    ),
+                    order = index,
+                    isRead = progress != null,
+                    readAt = progress?.readAt,
+                )
+            }
+        }
+        .flowOn(Dispatchers.IO)
 
     override suspend fun markRead(pathId: String, poemId: String) {
         val def = BuiltInAnthologies.byId(pathId) ?: return

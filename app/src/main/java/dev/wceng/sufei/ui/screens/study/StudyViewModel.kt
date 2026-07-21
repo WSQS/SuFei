@@ -1,0 +1,34 @@
+package dev.wceng.sufei.ui.screens.study
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.wceng.sufei.data.model.ReadingPath
+import dev.wceng.sufei.data.repository.ReadingPathRepository
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import javax.inject.Inject
+
+@HiltViewModel
+class StudyViewModel @Inject constructor(
+    readingPathRepository: ReadingPathRepository,
+) : ViewModel() {
+
+    val uiState: StateFlow<StudyUiState> = readingPathRepository.observeAllPaths()
+        .map { paths ->
+            if (paths.isEmpty()) StudyUiState.Loading
+            else StudyUiState.Success(paths)
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = StudyUiState.Loading,
+        )
+}
+
+sealed interface StudyUiState {
+    data object Loading : StudyUiState
+    data class Success(val paths: List<ReadingPath>) : StudyUiState
+}

@@ -1,29 +1,162 @@
 package dev.wceng.sufei.ui.screens.study
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import dev.wceng.sufei.R
+import dev.wceng.sufei.data.model.ReadingPath
 
-/**
- * 学习（导读）页占位实现。
- *
- * commit 3 会填充：选集卡片 + 进度概览。
- * commit 4 会加入：路径详情页路由。
- */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StudyScreen() {
-    Box(
+fun StudyScreen(
+    onPathClick: (String) -> Unit = {},
+    viewModel: StudyViewModel = hiltViewModel(),
+) {
+    val uiState by viewModel.uiState.collectAsState()
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = stringResource(R.string.tab_study),
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    )
+                },
+            )
+        },
+        containerColor = MaterialTheme.colorScheme.background,
+    ) { innerPadding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding),
+        ) {
+            when (val state = uiState) {
+                is StudyUiState.Loading -> {
+                    CircularProgressIndicator(
+                        modifier = Modifier.align(Alignment.Center),
+                    )
+                }
+
+                is StudyUiState.Success -> {
+                    if (state.paths.isEmpty()) {
+                        Text(
+                            text = "暂无可用选集",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                            modifier = Modifier.align(Alignment.Center),
+                        )
+                    } else {
+                        PathList(
+                            paths = state.paths,
+                            onPathClick = onPathClick,
+                            contentPadding = PaddingValues(
+                                horizontal = 16.dp,
+                                vertical = 8.dp,
+                            ),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PathList(
+    paths: List<ReadingPath>,
+    onPathClick: (String) -> Unit,
+    contentPadding: PaddingValues,
+) {
+    LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
+        contentPadding = contentPadding,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(
-            text = "研习",
-            style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.onBackground,
-        )
+        items(paths, key = { it.id }) { path ->
+            PathCard(path = path, onClick = { onPathClick(path.id) })
+        }
+    }
+}
+
+@Composable
+private fun PathCard(
+    path: ReadingPath,
+    onClick: () -> Unit,
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        ),
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Text(
+                text = path.title,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = path.description,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 3,
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 进度
+            val readCount = path.readCount
+            val total = path.total
+            val progressText = if (path.isCompleted) {
+                "已读完 · $total 篇"
+            } else if (readCount == 0) {
+                "未开始 · 共 $total 篇"
+            } else {
+                "$readCount / $total 篇"
+            }
+            Text(
+                text = progressText,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            LinearProgressIndicator(
+                progress = { path.progress },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
     }
 }
