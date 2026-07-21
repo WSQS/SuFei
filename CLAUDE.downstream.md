@@ -84,3 +84,15 @@ Rules:
 - Only commit when explicitly requested; never commit automatically.
 - **PR merge requires explicit user approval**. Never auto-merge; always ask first.
 - **Direct commits to `dev` require explicit user approval per case**. Default to PR workflow when unsure.
+
+## Merge Strategy
+
+PRs are merged with **merge commits** (GitHub "Create a merge commit"), not
+squash or rebase. Rationale: the per-step commit history (data layer → screen
+→ polish → ADR) is itself a reviewable artifact, and squash would erase the
+atomic structure the contributor took care to build.
+
+- Disable "Allow squash merging" and "Allow rebase merging" in repo settings
+  if practical; otherwise just always pick merge.
+- The merge commit message can stay the GitHub default; do not hand-edit.
+- This rule applies to PRs into `dev` and `main` alike.
