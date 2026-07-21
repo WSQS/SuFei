@@ -45,4 +45,8 @@ interface PoemDao {
         ORDER BY RANDOM() LIMIT :limit
     """)
     fun getHighQualityRandomPoems(limit: Int): Flow<List<PoemEntity>>
+
+    // fork-specific: used by ReadingPathRepository to resolve anthology members
+    @Query("SELECT id FROM poems WHERE tags LIKE '%' || :tag || '%'")
+    suspend fun getPoemIdsByTag(tag: String): List<String>
 }

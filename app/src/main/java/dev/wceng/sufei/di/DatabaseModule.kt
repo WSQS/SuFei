@@ -10,6 +10,7 @@ import dagger.hilt.components.SingletonComponent
 import dev.wceng.sufei.data.local.room.AppDatabase
 import dev.wceng.sufei.data.local.room.PoemDao
 import dev.wceng.sufei.data.local.room.PoetDao
+import dev.wceng.sufei.data.local.room.ReadingProgressDao
 import dev.wceng.sufei.data.local.room.TagDao
 import dev.wceng.sufei.data.local.room.TuneDao
 import javax.inject.Singleton
@@ -35,7 +36,8 @@ object DatabaseModule {
             AppDatabase.MIGRATION_5_6,
             AppDatabase.MIGRATION_6_7,
             AppDatabase.MIGRATION_7_8,
-            AppDatabase.MIGRATION_8_9
+            AppDatabase.MIGRATION_8_9,
+            AppDatabase.MIGRATION_9_10
         )
             .build()
     }
@@ -58,5 +60,10 @@ object DatabaseModule {
     @Provides
     fun provideTuneDao(database: AppDatabase): TuneDao {
         return database.tuneDao()
+    }
+
+    @Provides
+    fun provideReadingProgressDao(database: AppDatabase): ReadingProgressDao {
+        return database.readingProgressDao()
     }
 }

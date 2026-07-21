@@ -28,4 +28,11 @@ abstract class RepositoryModule {
     abstract fun bindUserPreferencesRepository(
         userPreferencesRepositoryImpl: UserPreferencesRepositoryImpl
     ): UserPreferencesRepository
+
+    // fork-specific: Reading Paths
+    @Binds
+    @Singleton
+    abstract fun bindReadingPathRepository(
+        readingPathRepositoryImpl: ReadingPathRepositoryImpl
+    ): ReadingPathRepository
 }

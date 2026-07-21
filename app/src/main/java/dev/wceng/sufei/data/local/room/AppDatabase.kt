@@ -7,6 +7,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import dev.wceng.sufei.data.local.room.entity.PoemEntity
 import dev.wceng.sufei.data.local.room.entity.PoetEntity
+import dev.wceng.sufei.data.local.room.entity.ReadingProgressEntity
 import dev.wceng.sufei.data.local.room.entity.TagEntity
 import dev.wceng.sufei.data.local.room.entity.TuneEntity
 import dev.wceng.sufei.util.cleanAuthor
@@ -19,9 +20,10 @@ import kotlinx.serialization.json.Json
         PoemEntity::class, 
         TagEntity::class, 
         PoetEntity::class, 
-        TuneEntity::class
+        TuneEntity::class,
+        ReadingProgressEntity::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -30,6 +32,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun tagDao(): TagDao
     abstract fun poetDao(): PoetDao
     abstract fun tuneDao(): TuneDao
+    abstract fun readingProgressDao(): ReadingProgressDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -170,6 +173,21 @@ abstract class AppDatabase : RoomDatabase() {
                     if (count < 500) break
                 }
                 println("Migration 8-9 complete. Total cleaned: $totalUpdated")
+            }
+        }
+
+        // fork-specific: adds reading_progress table for Reading Paths feature
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS reading_progress (
+                        pathId TEXT NOT NULL,
+                        poemId TEXT NOT NULL,
+                        position INTEGER NOT NULL,
+                        readAt INTEGER NOT NULL,
+                        PRIMARY KEY(pathId, poemId)
+                    )
+                """.trimIndent())
             }
         }
     }
