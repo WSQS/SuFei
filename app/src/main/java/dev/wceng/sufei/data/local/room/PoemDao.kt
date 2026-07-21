@@ -1,6 +1,7 @@
 package dev.wceng.sufei.data.local.room
 
 import androidx.room.*
+import androidx.room.MapColumn
 import dev.wceng.sufei.data.local.room.entity.PoemEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -49,4 +50,8 @@ interface PoemDao {
     // fork-specific: used by ReadingPathRepository to resolve anthology members
     @Query("SELECT id FROM poems WHERE tags LIKE '%' || :tag || '%'")
     suspend fun getPoemIdsByTag(tag: String): List<String>
+
+    // fork-specific: returns sourceUrl -> id map of anthology members, for ordering JOIN
+    @Query("SELECT sourceUrl, id FROM poems WHERE tags LIKE '%' || :tag || '%'")
+    suspend fun getSourceUrlToIdByTag(tag: String): Map<@MapColumn(columnName = "sourceUrl") String, @MapColumn(columnName = "id") String>
 }
