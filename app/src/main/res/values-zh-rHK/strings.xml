@@ -105,7 +105,7 @@
 
     <!-- fork-specific: Study tab (Reading Paths) -->
     <string name="tab_study">研習</string>
-    <string name="study_empty">暫���可用選集</string>
+    <string name="study_empty">暫無可用選集</string>
     <string name="study_path_not_found">選集不存在</string>
     <string name="study_progress_completed">已讀完 · %1$d 篇</string>
     <string name="study_progress_not_started">未開始 · 共 %1$d 篇</string>
