@@ -9,6 +9,10 @@ import dev.wceng.sufei.data.local.room.entity.PoemEntity
 import dev.wceng.sufei.data.local.room.entity.PoetEntity
 import dev.wceng.sufei.data.local.room.entity.TagEntity
 import dev.wceng.sufei.data.local.room.entity.TuneEntity
+import dev.wceng.sufei.fork.sopho.data.local.room.AnthologyDao  // fork-specific
+import dev.wceng.sufei.fork.sopho.data.local.room.ReadingProgressDao  // fork-specific
+import dev.wceng.sufei.fork.sopho.data.local.room.entity.AnthologyEntity  // fork-specific
+import dev.wceng.sufei.fork.sopho.data.local.room.entity.ReadingProgressEntity  // fork-specific
 import dev.wceng.sufei.util.cleanAuthor
 import dev.wceng.sufei.util.cleanDescription
 import kotlinx.serialization.encodeToString
@@ -16,12 +20,14 @@ import kotlinx.serialization.json.Json
 
 @Database(
     entities = [
-        PoemEntity::class, 
-        TagEntity::class, 
-        PoetEntity::class, 
-        TuneEntity::class
+        PoemEntity::class,
+        TagEntity::class,
+        PoetEntity::class,
+        TuneEntity::class,
+        ReadingProgressEntity::class,
+        AnthologyEntity::class
     ],
-    version = 9,
+    version = 11,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -30,6 +36,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun tagDao(): TagDao
     abstract fun poetDao(): PoetDao
     abstract fun tuneDao(): TuneDao
+    abstract fun readingProgressDao(): ReadingProgressDao
+    abstract fun anthologyDao(): AnthologyDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -170,6 +178,35 @@ abstract class AppDatabase : RoomDatabase() {
                     if (count < 500) break
                 }
                 println("Migration 8-9 complete. Total cleaned: $totalUpdated")
+            }
+        }
+
+        // fork-specific: adds reading_progress table for Reading Paths feature
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS reading_progress (
+                        pathId TEXT NOT NULL,
+                        poemId TEXT NOT NULL,
+                        position INTEGER NOT NULL,
+                        readAt INTEGER NOT NULL,
+                        PRIMARY KEY(pathId, poemId)
+                    )
+                """.trimIndent())
+            }
+        }
+
+        // fork-specific: adds anthologies table (persisted anthology definitions)
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS anthologies (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        title TEXT NOT NULL,
+                        description TEXT NOT NULL,
+                        sourceTag TEXT NOT NULL
+                    )
+                """.trimIndent())
             }
         }
     }

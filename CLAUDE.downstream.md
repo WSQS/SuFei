@@ -22,6 +22,25 @@ This is a fork of the upstream repository. To minimize merge conflicts when sync
 
 When tempted to edit an upstream file, first ask: can this be achieved via extension (wrapper/inheritance/composition)? If an edit is unavoidable, keep it small and localized, and call it out in the commit message for easier merge resolution later.
 
+## Fork Code Isolation
+
+All fork-specific code lives under the dedicated namespace `dev.wceng.sufei.fork.sopho`. This keeps fork additions physically and logically separated from upstream code.
+
+Package structure convention:
+```
+dev.wceng.sufei.fork.sopho/
+├── ui/             # fork screens, components, navigation
+├── data/           # fork repositories, datasources
+├── di/             # fork Hilt modules (if any)
+└── domain/         # fork usecases, models
+```
+
+Rules:
+- New files go under `dev.wceng.sufei.fork.sopho.*`, not under `dev.wceng.sufei.*`.
+- Cross-package imports from upstream code into fork code are expected and fine.
+- When an upstream file must reference fork code, the `import dev.wceng.sufei.fork.sopho...` line itself serves as a visible "fork-specific" marker during merge review.
+- Routes, models, and other stateless definitions that upstream might also add should ALWAYS be isolated to fork packages to avoid rename/move conflicts.
+
 ## Issue-First Workflow
 
 **All problems, bugs, and feature ideas must be recorded as a GitHub issue BEFORE any implementation work begins.** This includes both user-reported issues and agent-discovered problems during development.
@@ -30,6 +49,14 @@ When tempted to edit an upstream file, first ask: can this be achieved via exten
 - Issues serve as the single source of truth for what is being built and why.
 - PRs should reference the issue they implement (`Closes #N` in the PR body).
 - When in doubt about whether something warrants an issue, create one.
+
+## Decision Records
+
+Architecture and data-model decisions live in `docs/decisions/` (one ADR per
+file, see its README for template and lifecycle). Write one whenever a choice
+would otherwise need to be reverse-engineered from code later. Bundle the ADR
+with the implementing PR; for cross-cutting direction, open the ADR as its own
+PR first.
 
 ## Branch Strategy
 
@@ -57,3 +84,15 @@ Rules:
 - Only commit when explicitly requested; never commit automatically.
 - **PR merge requires explicit user approval**. Never auto-merge; always ask first.
 - **Direct commits to `dev` require explicit user approval per case**. Default to PR workflow when unsure.
+
+## Merge Strategy
+
+PRs are merged with **merge commits** (GitHub "Create a merge commit"), not
+squash or rebase. Rationale: the per-step commit history (data layer → screen
+→ polish → ADR) is itself a reviewable artifact, and squash would erase the
+atomic structure the contributor took care to build.
+
+- Disable "Allow squash merging" and "Allow rebase merging" in repo settings
+  if practical; otherwise just always pick merge.
+- The merge commit message can stay the GitHub default; do not hand-edit.
+- This rule applies to PRs into `dev` and `main` alike.
