@@ -1,6 +1,7 @@
 package dev.wceng.sufei.fork.sopho.data.repository
 
 import dev.wceng.sufei.data.local.room.PoemDao
+import dev.wceng.sufei.data.local.room.PoemUrlAndId
 import dev.wceng.sufei.data.local.room.entity.toPoem
 import dev.wceng.sufei.fork.sopho.data.local.room.AnthologyDao
 import dev.wceng.sufei.fork.sopho.data.local.room.AnthologyOrderingDao
@@ -83,8 +84,11 @@ class ReadingPathRepositoryImpl @Inject constructor(
     }
 
     private suspend fun resolveOrderedIds(def: Anthology): List<String> {
-        val urlToId = poemDao.getSourceUrlToIdByTag(def.sourceTag)
-        if (urlToId.isEmpty()) return emptyList()
+        val members = poemDao.getSourceUrlAndIdByTag(def.sourceTag)
+        if (members.isEmpty()) return emptyList()
+
+        val urlToId = HashMap<String, String>(members.size)
+        members.forEach { urlToId[it.sourceUrl] = it.id }
 
         val orderMap = anthologyOrderingDao.getByPath(def.id)
             .associateBy { it.sourceUrl }
@@ -93,10 +97,10 @@ class ReadingPathRepositoryImpl @Inject constructor(
             urlToId[o.sourceUrl]?.let { o.position to it }
         }.sortedBy { it.first }.map { it.second }
 
-        if (ordered.size == urlToId.size) return ordered
+        if (ordered.size == members.size) return ordered
 
         val covered = ordered.toHashSet()
-        val fallback = urlToId.values.filter { it !in covered }
+        val fallback = members.map { it.id }.filter { it !in covered }
         return ordered + fallback
     }
 

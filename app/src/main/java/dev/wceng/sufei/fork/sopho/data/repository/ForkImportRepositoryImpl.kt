@@ -27,9 +27,12 @@ class ForkImportRepositoryImpl @Inject constructor(
 
     override suspend fun startImportIfNeeded() {
         withContext(Dispatchers.IO) {
-            if (anthologyDao.count() > 0) return@withContext
-            importAnthologies()
-            importOrderings()
+            if (anthologyDao.count() == 0) {
+                importAnthologies()
+            }
+            if (anthologyOrderingDao.count() == 0) {
+                importOrderings()
+            }
         }
     }
 

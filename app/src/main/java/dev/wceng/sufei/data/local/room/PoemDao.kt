@@ -1,7 +1,6 @@
 package dev.wceng.sufei.data.local.room
 
 import androidx.room.*
-import androidx.room.MapColumn
 import dev.wceng.sufei.data.local.room.entity.PoemEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -51,7 +50,14 @@ interface PoemDao {
     @Query("SELECT id FROM poems WHERE tags LIKE '%' || :tag || '%'")
     suspend fun getPoemIdsByTag(tag: String): List<String>
 
-    // fork-specific: returns sourceUrl -> id map of anthology members, for ordering JOIN
+    // fork-specific: returns sourceUrl + id of anthology members in data order,
+    // for ordering JOIN. List preserves SQL row order for fallback sorting.
     @Query("SELECT sourceUrl, id FROM poems WHERE tags LIKE '%' || :tag || '%'")
-    suspend fun getSourceUrlToIdByTag(tag: String): Map<@MapColumn(columnName = "sourceUrl") String, @MapColumn(columnName = "id") String>
+    suspend fun getSourceUrlAndIdByTag(tag: String): List<PoemUrlAndId>
 }
+
+/** fork-specific: anthology member projection for ordering JOIN. */
+data class PoemUrlAndId(
+    val sourceUrl: String,
+    val id: String,
+)
