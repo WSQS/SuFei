@@ -22,6 +22,7 @@ import dev.wceng.sufei.ui.navigation.Navigator
 import dev.wceng.sufei.ui.navigation.PoetDetail
 import dev.wceng.sufei.ui.navigation.PoetWorks
 import dev.wceng.sufei.ui.navigation.Settings
+import dev.wceng.sufei.ui.navigation.Study
 import dev.wceng.sufei.ui.screens.collection.CollectionScreen
 import dev.wceng.sufei.ui.screens.detail.DetailScreen
 import dev.wceng.sufei.ui.screens.detail.DetailViewModel
@@ -33,6 +34,7 @@ import dev.wceng.sufei.ui.screens.poet.PoetDetailViewModel
 import dev.wceng.sufei.ui.screens.poetworks.PoetWorksScreen
 import dev.wceng.sufei.ui.screens.poetworks.PoetWorksViewModel
 import dev.wceng.sufei.ui.screens.settings.SettingsScreen
+import dev.wceng.sufei.ui.screens.study.StudyScreen
 
 /**
  * 屏幕路由注册模块
@@ -189,6 +191,15 @@ object ScreensModule {
     fun provideSettingsEntry(): EntryProviderInstaller = {
         entry<Settings> {
             SettingsScreen()
+        }
+    }
+
+    // fork-specific: Study tab (Reading Paths)
+    @IntoSet
+    @Provides
+    fun provideStudyEntry(): EntryProviderInstaller = {
+        entry<Study> {
+            StudyScreen()
         }
     }
 }

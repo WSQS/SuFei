@@ -24,6 +24,7 @@ import dev.wceng.sufei.ui.navigation.Home
 import dev.wceng.sufei.ui.navigation.MainTab
 import dev.wceng.sufei.ui.navigation.Navigator
 import dev.wceng.sufei.ui.navigation.Settings
+import dev.wceng.sufei.ui.navigation.Study
 import dev.wceng.sufei.ui.navigation.toRoute
 
 @Composable
@@ -38,6 +39,7 @@ fun SuFeiApp(
             is Home -> MainTab.Home
             is Explore -> MainTab.Explore
             is Collection -> MainTab.Collection
+            is Study -> MainTab.Study
             is Settings -> MainTab.Settings
             else -> null
         }

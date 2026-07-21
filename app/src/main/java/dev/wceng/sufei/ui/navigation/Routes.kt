@@ -22,6 +22,10 @@ object Collection
 @Serializable
 object Settings
 
+// fork-specific: Study tab (Reading Paths)
+@Serializable
+object Study
+
 @Serializable
 data class Detail(val id: String)
 

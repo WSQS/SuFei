@@ -103,4 +103,7 @@
     <string name="action_close">关闭</string>
     <string name="action_search">搜索</string>
 
+    <!-- fork-specific: Study tab (Reading Paths) -->
+    <string name="tab_study">研习</string>
+
 </resources>
