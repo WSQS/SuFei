@@ -35,4 +35,11 @@ abstract class RepositoryModule {
     abstract fun bindReadingPathRepository(
         readingPathRepositoryImpl: ReadingPathRepositoryImpl
     ): ReadingPathRepository
+
+    // fork-specific: fork data import (anthologies, etc.)
+    @Binds
+    @Singleton
+    abstract fun bindForkImportRepository(
+        forkImportRepositoryImpl: ForkImportRepositoryImpl
+    ): ForkImportRepository
 }

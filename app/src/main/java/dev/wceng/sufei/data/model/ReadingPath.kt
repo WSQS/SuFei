@@ -12,7 +12,7 @@ package dev.wceng.sufei.data.model
  * @param description 选集简介
  * @param sourceTag 对应诗句的 tags 字段值，用于从 poems 表反查成员
  * @param total 总篇数
- * @param readPoemIds 用户已读的 poemId 集合（按 path 维度）
+ * @param readPoemIds 本选集中已读的 poemId 集合。注意：已读状态绑定在"选集+诗"组合上，同一首诗在不同选集里的已读状态相互独立
  * @param currentPoemId 下一个该读的 poemId（已读之外的最小序号），null 表示未启动或已读完
  * @param orderedPoemIds 按预定顺序排列的 poemId 列表（V1 用数据原序占位，后续替换为原著顺序）
  */

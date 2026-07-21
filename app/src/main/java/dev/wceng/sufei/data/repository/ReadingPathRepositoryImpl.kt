@@ -1,13 +1,14 @@
 package dev.wceng.sufei.data.repository
 
+import dev.wceng.sufei.data.local.room.AnthologyDao
 import dev.wceng.sufei.data.local.room.PoemDao
 import dev.wceng.sufei.data.local.room.ReadingProgressDao
 import dev.wceng.sufei.data.local.room.entity.ReadingProgressEntity
+import dev.wceng.sufei.data.local.room.entity.toAnthology
 import dev.wceng.sufei.data.local.room.entity.toPoem
+import dev.wceng.sufei.data.model.Anthology
 import dev.wceng.sufei.data.model.PathItem
 import dev.wceng.sufei.data.model.ReadingPath
-import dev.wceng.sufei.data.readingpath.AnthologyDefinition
-import dev.wceng.sufei.data.readingpath.BuiltInAnthologies
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOn
@@ -19,6 +20,7 @@ import javax.inject.Singleton
 class ReadingPathRepositoryImpl @Inject constructor(
     private val poemDao: PoemDao,
     private val readingProgressDao: ReadingProgressDao,
+    private val anthologyDao: AnthologyDao,
 ) : ReadingPathRepository {
 
     /**
@@ -32,38 +34,28 @@ class ReadingPathRepositoryImpl @Inject constructor(
 
     override fun observeAllPaths(): Flow<List<ReadingPath>> = progressTick
         .map {
-            BuiltInAnthologies.all.map { def ->
-                resolvePath(def, readingProgressDao.getByPath(def.id))
+            anthologyDao.getAll().map { def ->
+                resolvePath(def.toAnthology(), readingProgressDao.getByPath(def.id))
             }
         }
         .flowOn(Dispatchers.IO)
 
     override fun observePath(pathId: String): Flow<ReadingPath?> = progressTick
         .map {
-            val def = BuiltInAnthologies.byId(pathId) ?: return@map null
+            val def = anthologyDao.getById(pathId)?.toAnthology() ?: return@map null
             resolvePath(def, readingProgressDao.getByPath(pathId))
         }
         .flowOn(Dispatchers.IO)
 
     override fun observePathItems(pathId: String): Flow<List<PathItem>> = progressTick
         .map {
-            val def = BuiltInAnthologies.byId(pathId) ?: return@map emptyList()
-            val orderedIds = poemDao.getPoemIdsByTag(def.sourceTag)
-            val readMap = readingProgressDao.getByPath(pathId).associateBy { it.poemId }
-            orderedIds.mapIndexedNotNull { index, poemId ->
-                val entity = poemDao.getPoemById(poemId) ?: return@mapIndexedNotNull null
-                PathItem(
-                    poem = entity.toPoem(),
-                    order = index,
-                    isRead = readMap.containsKey(poemId),
-                    readAt = readMap[poemId]?.readAt,
-                )
-            }
+            val def = anthologyDao.getById(pathId)?.toAnthology() ?: return@map emptyList()
+            resolveItems(def, pathId)
         }
         .flowOn(Dispatchers.IO)
 
     override suspend fun markRead(pathId: String, poemId: String) {
-        val def = BuiltInAnthologies.byId(pathId) ?: return
+        val def = anthologyDao.getById(pathId)?.toAnthology() ?: return
         val orderedIds = poemDao.getPoemIdsByTag(def.sourceTag)
         val position = orderedIds.indexOf(poemId).takeIf { it >= 0 } ?: return
         readingProgressDao.upsert(
@@ -81,7 +73,7 @@ class ReadingPathRepositoryImpl @Inject constructor(
     }
 
     private suspend fun resolvePath(
-        def: AnthologyDefinition,
+        def: Anthology,
         progress: List<ReadingProgressEntity>,
     ): ReadingPath {
         val orderedIds = poemDao.getPoemIdsByTag(def.sourceTag)
@@ -98,5 +90,19 @@ class ReadingPathRepositoryImpl @Inject constructor(
             currentPoemId = current,
             orderedPoemIds = orderedIds,
         )
+    }
+
+    private suspend fun resolveItems(def: Anthology, pathId: String): List<PathItem> {
+        val orderedIds = poemDao.getPoemIdsByTag(def.sourceTag)
+        val readMap = readingProgressDao.getByPath(pathId).associateBy { it.poemId }
+        return orderedIds.mapIndexedNotNull { index, poemId ->
+            val entity = poemDao.getPoemById(poemId) ?: return@mapIndexedNotNull null
+            PathItem(
+                poem = entity.toPoem(),
+                order = index,
+                isRead = readMap.containsKey(poemId),
+                readAt = readMap[poemId]?.readAt,
+            )
+        }
     }
 }
