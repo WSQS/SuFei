@@ -1,11 +1,11 @@
 package dev.wceng.sufei.fork.sopho.data.repository
 
-import dev.wceng.sufei.fork.sopho.data.local.room.AnthologyDao
 import dev.wceng.sufei.data.local.room.PoemDao
+import dev.wceng.sufei.data.local.room.entity.toPoem
+import dev.wceng.sufei.fork.sopho.data.local.room.AnthologyDao
 import dev.wceng.sufei.fork.sopho.data.local.room.ReadingProgressDao
 import dev.wceng.sufei.fork.sopho.data.local.room.entity.ReadingProgressEntity
 import dev.wceng.sufei.fork.sopho.data.local.room.entity.toAnthology
-import dev.wceng.sufei.data.local.room.entity.toPoem
 import dev.wceng.sufei.fork.sopho.data.model.Anthology
 import dev.wceng.sufei.fork.sopho.data.model.PathItem
 import dev.wceng.sufei.fork.sopho.data.model.ReadingPath
@@ -16,6 +16,13 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * [ReadingPathRepository] 实现。
+ *
+ * 响应式策略：选集定义与 poems 成员在导入后静态不变，因此只观察
+ * [ReadingProgressDao.observeAnyChange] 作为脏标志；任意进度写入都会
+ * 触发所有 observe* 重新聚合。
+ */
 @Singleton
 class ReadingPathRepositoryImpl @Inject constructor(
     private val poemDao: PoemDao,
@@ -23,19 +30,13 @@ class ReadingPathRepositoryImpl @Inject constructor(
     private val anthologyDao: AnthologyDao,
 ) : ReadingPathRepository {
 
-    /**
-     * 观察全表计数——任何路径的进度变化都会触发它重新发射，
-     * 用作"任意进度变更"的脏标志，驱动所有选集的重算。
-     *
-     * 注：选集成员查询是静态的（数据导入后不变），
-     * 因此不必观察 poems 表，只观察 reading_progress 即可。
-     */
+    /** 任意进度变更 → Unit，驱动下游 map 重算。 */
     private val progressTick: Flow<Unit> = readingProgressDao.observeAnyChange().map { }
 
     override fun observeAllPaths(): Flow<List<ReadingPath>> = progressTick
         .map {
-            anthologyDao.getAll().map { def ->
-                resolvePath(def.toAnthology(), readingProgressDao.getByPath(def.id))
+            anthologyDao.getAll().map { entity ->
+                resolvePath(entity.toAnthology(), readingProgressDao.getByPath(entity.id))
             }
         }
         .flowOn(Dispatchers.IO)

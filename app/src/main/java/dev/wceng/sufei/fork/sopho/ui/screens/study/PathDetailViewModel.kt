@@ -16,6 +16,11 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+/**
+ * 选集详情：合并 path 头信息与成员列表；支持标记/取消已读。
+ *
+ * 通过 assisted 注入接收 [PathDetail] 路由参数（与 Detail / PoetDetail 一致）。
+ */
 @HiltViewModel(assistedFactory = PathDetailViewModel.Factory::class)
 class PathDetailViewModel @AssistedInject constructor(
     private val readingPathRepository: ReadingPathRepository,

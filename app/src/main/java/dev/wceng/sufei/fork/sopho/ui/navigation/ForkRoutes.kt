@@ -10,10 +10,14 @@ import kotlinx.serialization.Serializable
  * visible "fork-specific" markers during merge review.
  */
 
-// Study tab (Reading Paths anthology list)
+/** 研习 Tab（经典选集列表）。 */
 @Serializable
 object Study
 
-// Path detail (single anthology content + progress)
+/**
+ * 选集详情（有序诗列表 + 阅读进度）。
+ *
+ * @param pathId 对应 [dev.wceng.sufei.fork.sopho.data.model.Anthology.id]
+ */
 @Serializable
 data class PathDetail(val pathId: String)

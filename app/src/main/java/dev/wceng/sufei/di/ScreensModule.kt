@@ -197,7 +197,7 @@ object ScreensModule {
         }
     }
 
-    // fork-specific: Study tab (Reading Paths)
+    // fork-specific: 研习 Tab — 经典选集列表
     @IntoSet
     @Provides
     fun provideStudyEntry(navigator: Navigator): EntryProviderInstaller = {
@@ -210,7 +210,7 @@ object ScreensModule {
         }
     }
 
-    // fork-specific: Path detail (anthology content)
+    // fork-specific: 选集详情 — 与 Detail 同款 slide-up/fade + predictive back
     @IntoSet
     @Provides
     fun providePathDetailEntry(navigator: Navigator): EntryProviderInstaller = {
