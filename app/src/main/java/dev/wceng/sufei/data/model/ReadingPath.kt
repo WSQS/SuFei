@@ -29,7 +29,19 @@ data class ReadingPath(
     val readCount: Int get() = readPoemIds.size
     val progress: Float get() = if (total == 0) 0f else readCount.toFloat() / total
     val isCompleted: Boolean get() = total > 0 && readCount >= total
+
+    /**
+     * 进度文案的三种语义状态，供 UI 层映射到字符串资源。
+     * 放在 model 里集中定义，避免多个 Composable 各自判断。
+     */
+    val progressState: ProgressState get() = when {
+        isCompleted -> ProgressState.Completed
+        readCount == 0 -> ProgressState.NotStarted
+        else -> ProgressState.InProgress
+    }
 }
+
+enum class ProgressState { NotStarted, InProgress, Completed }
 
 /**
  * 单首诗在路径中的视图：携带路径内位置和已读状态

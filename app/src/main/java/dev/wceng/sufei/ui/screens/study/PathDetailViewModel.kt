@@ -49,12 +49,6 @@ class PathDetailViewModel @AssistedInject constructor(
         }
     }
 
-    fun resetPath() {
-        viewModelScope.launch {
-            readingPathRepository.resetPath(pathDetail.pathId)
-        }
-    }
-
     @AssistedFactory
     interface Factory {
         fun create(pathDetail: PathDetail): PathDetailViewModel

@@ -28,13 +28,4 @@ interface ReadingPathRepository {
 
     /** 取消某首诗的已读标记 */
     suspend fun markUnread(pathId: String, poemId: String)
-
-    /** 重置整条路径进度（清除所有已读记录） */
-    suspend fun resetPath(pathId: String)
-
-    /**
-     * 获取下一条该读的诗，null 表示已读完或选集为空。
-     * 返回 (poemId, order)。
-     */
-    suspend fun nextUnread(pathId: String): Pair<String, Int>?
 }

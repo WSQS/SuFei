@@ -31,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import dev.wceng.sufei.R
+import dev.wceng.sufei.data.model.ProgressState
 import dev.wceng.sufei.data.model.ReadingPath
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -69,7 +70,7 @@ fun StudyScreen(
                 is StudyUiState.Success -> {
                     if (state.paths.isEmpty()) {
                         Text(
-                            text = "暂无可用选集",
+                            text = stringResource(R.string.study_empty),
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
                             modifier = Modifier.align(Alignment.Center),
@@ -108,6 +109,13 @@ private fun PathList(
 }
 
 @Composable
+private fun ReadingPath.progressText(): String = when (progressState) {
+    ProgressState.Completed -> stringResource(R.string.study_progress_completed, total)
+    ProgressState.NotStarted -> stringResource(R.string.study_progress_not_started, total)
+    ProgressState.InProgress -> stringResource(R.string.study_progress_in_progress, readCount, total)
+}
+
+@Composable
 private fun PathCard(
     path: ReadingPath,
     onClick: () -> Unit,
@@ -137,16 +145,7 @@ private fun PathCard(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 进度
-            val readCount = path.readCount
-            val total = path.total
-            val progressText = if (path.isCompleted) {
-                "已读完 · $total 篇"
-            } else if (readCount == 0) {
-                "未开始 · 共 $total 篇"
-            } else {
-                "$readCount / $total 篇"
-            }
+            val progressText = path.progressText()
             Text(
                 text = progressText,
                 style = MaterialTheme.typography.labelMedium,

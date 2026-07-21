@@ -9,7 +9,7 @@ import androidx.room.Entity
  *
  * @param pathId ReadingPath.id，如 "gushi_19"
  * @param poemId poems 表的外键
- * @param order 该诗在路径中的顺序索引（0-based）
+ * @param position 该诗在路径中的顺序索引（0-based）；命名为 position 以避免 SQLite 保留字 order
  * @param readAt 读时间戳（毫秒）
  */
 @Entity(

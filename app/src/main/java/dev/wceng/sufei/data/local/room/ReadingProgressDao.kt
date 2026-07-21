@@ -11,23 +11,14 @@ import kotlinx.coroutines.flow.Flow
 interface ReadingProgressDao {
 
     @Query("SELECT * FROM reading_progress WHERE pathId = :pathId ORDER BY position ASC")
-    fun observeByPath(pathId: String): Flow<List<ReadingProgressEntity>>
-
-    @Query("SELECT * FROM reading_progress WHERE pathId = :pathId ORDER BY position ASC")
     suspend fun getByPath(pathId: String): List<ReadingProgressEntity>
 
     /** 观察全表计数，用作"任意进度变更"的脏标志 */
     @Query("SELECT COUNT(*) FROM reading_progress")
     fun observeAnyChange(): Flow<Int>
 
-    @Query("SELECT EXISTS(SELECT 1 FROM reading_progress WHERE pathId = :pathId AND poemId = :poemId)")
-    suspend fun isRead(pathId: String, poemId: String): Boolean
-
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: ReadingProgressEntity)
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertAll(entities: List<ReadingProgressEntity>)
 
     @Query("DELETE FROM reading_progress WHERE pathId = :pathId AND poemId = :poemId")
     suspend fun delete(pathId: String, poemId: String)

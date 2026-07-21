@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import dev.wceng.sufei.R
 import dev.wceng.sufei.data.model.PathItem
+import dev.wceng.sufei.data.model.ProgressState
 import dev.wceng.sufei.data.model.ReadingPath
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -93,7 +94,7 @@ fun PathDetailScreen(
 
                 is PathDetailUiState.Error -> {
                     Text(
-                        text = "选集不存在",
+                        text = stringResource(R.string.study_path_not_found),
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.align(Alignment.Center),
                     )
@@ -162,12 +163,10 @@ private fun PathSummary(path: ReadingPath) {
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        val progressText = if (path.isCompleted) {
-            "已读完 · ${path.total} 篇"
-        } else if (path.readCount == 0) {
-            "未开始 · 共 ${path.total} 篇"
-        } else {
-            "${path.readCount} / ${path.total} 篇"
+        val progressText = when (path.progressState) {
+            ProgressState.Completed -> stringResource(R.string.study_progress_completed, path.total)
+            ProgressState.NotStarted -> stringResource(R.string.study_progress_not_started, path.total)
+            ProgressState.InProgress -> stringResource(R.string.study_progress_in_progress, path.readCount, path.total)
         }
         Text(
             text = progressText,
@@ -207,7 +206,7 @@ private fun PathItemRow(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(modifier = Modifier.fillMaxWidth(0.85f)) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = item.poem.title,
                     style = MaterialTheme.typography.titleMedium.copy(
@@ -246,7 +245,7 @@ private fun PathItemRow(
                     } else {
                         Icons.Default.RadioButtonUnchecked
                     },
-                    contentDescription = if (item.isRead) "标记为未读" else "标记为已读",
+                    contentDescription = if (item.isRead) stringResource(R.string.study_mark_unread) else stringResource(R.string.study_mark_read),
                     tint = if (item.isRead) {
                         MaterialTheme.colorScheme.primary
                     } else {

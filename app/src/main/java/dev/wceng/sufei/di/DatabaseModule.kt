@@ -37,7 +37,7 @@ object DatabaseModule {
             AppDatabase.MIGRATION_6_7,
             AppDatabase.MIGRATION_7_8,
             AppDatabase.MIGRATION_8_9,
-            AppDatabase.MIGRATION_9_10
+            AppDatabase.MIGRATION_9_10, // fork-specific: reading_progress table
         )
             .build()
     }
@@ -62,6 +62,7 @@ object DatabaseModule {
         return database.tuneDao()
     }
 
+    // fork-specific: Reading Paths
     @Provides
     fun provideReadingProgressDao(database: AppDatabase): ReadingProgressDao {
         return database.readingProgressDao()
