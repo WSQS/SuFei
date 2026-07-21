@@ -22,6 +22,25 @@ This is a fork of the upstream repository. To minimize merge conflicts when sync
 
 When tempted to edit an upstream file, first ask: can this be achieved via extension (wrapper/inheritance/composition)? If an edit is unavoidable, keep it small and localized, and call it out in the commit message for easier merge resolution later.
 
+## Fork Code Isolation
+
+All fork-specific code lives under the dedicated namespace `dev.wceng.sufei.fork.sopho`. This keeps fork additions physically and logically separated from upstream code.
+
+Package structure convention:
+```
+dev.wceng.sufei.fork.sopho/
+├── ui/             # fork screens, components, navigation
+├── data/           # fork repositories, datasources
+├── di/             # fork Hilt modules (if any)
+└── domain/         # fork usecases, models
+```
+
+Rules:
+- New files go under `dev.wceng.sufei.fork.sopho.*`, not under `dev.wceng.sufei.*`.
+- Cross-package imports from upstream code into fork code are expected and fine.
+- When an upstream file must reference fork code, the `import dev.wceng.sufei.fork.sopho...` line itself serves as a visible "fork-specific" marker during merge review.
+- Routes, models, and other stateless definitions that upstream might also add should ALWAYS be isolated to fork packages to avoid rename/move conflicts.
+
 ## Branch Strategy
 
 - `main` tracks upstream; keep it clean for syncing.
