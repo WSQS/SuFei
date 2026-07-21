@@ -34,10 +34,34 @@ jobs:
       - name: Run unit tests
         run: ./gradlew test --stacktrace
 
+      - name: Decode signing keystore
+        run: |
+          echo "${{ secrets.SIGNING_KEYSTORE }}" | base64 -d > keystore.jks
+
+      - name: Write keystore.properties
+        run: |
+          cat > keystore.properties <<EOF
+          storeFile=${{ github.workspace }}/keystore.jks
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          EOF
+
+      - name: Assemble signed release APK
+        run: ./gradlew assembleRelease --stacktrace
+
       - name: Upload debug APK
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: debug-apk
           path: app/build/outputs/apk/debug/*.apk
+          retention-days: 7
+
+      - name: Upload signed release APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apk
+          path: app/build/outputs/apk/release/*.apk
           retention-days: 7
