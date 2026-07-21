@@ -35,7 +35,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -44,9 +43,11 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import dev.wceng.sufei.R
 import dev.wceng.sufei.fork.sopho.data.model.PathItem
-import dev.wceng.sufei.fork.sopho.data.model.ProgressState
 import dev.wceng.sufei.fork.sopho.data.model.ReadingPath
 
+/**
+ * 选集详情：简介 + 进度 + 有序诗列表；点行进读诗并自动 markRead，图标可手动切换已读。
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PathDetailScreen(
@@ -163,13 +164,8 @@ private fun PathSummary(path: ReadingPath) {
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        val progressText = when (path.progressState) {
-            ProgressState.Completed -> stringResource(R.string.study_progress_completed, path.total)
-            ProgressState.NotStarted -> stringResource(R.string.study_progress_not_started, path.total)
-            ProgressState.InProgress -> stringResource(R.string.study_progress_in_progress, path.readCount, path.total)
-        }
         Text(
-            text = progressText,
+            text = path.progressText(),
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.Bold,
@@ -216,7 +212,7 @@ private fun PathItemRow(
                         } else {
                             MaterialTheme.colorScheme.onSurface
                         },
-                        ),
+                    ),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -245,7 +241,11 @@ private fun PathItemRow(
                     } else {
                         Icons.Default.RadioButtonUnchecked
                     },
-                    contentDescription = if (item.isRead) stringResource(R.string.study_mark_unread) else stringResource(R.string.study_mark_read),
+                    contentDescription = if (item.isRead) {
+                        stringResource(R.string.study_mark_unread)
+                    } else {
+                        stringResource(R.string.study_mark_read)
+                    },
                     tint = if (item.isRead) {
                         MaterialTheme.colorScheme.primary
                     } else {

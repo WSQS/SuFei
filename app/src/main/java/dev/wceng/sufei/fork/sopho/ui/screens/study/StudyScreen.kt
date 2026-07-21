@@ -31,9 +31,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import dev.wceng.sufei.R
-import dev.wceng.sufei.fork.sopho.data.model.ProgressState
 import dev.wceng.sufei.fork.sopho.data.model.ReadingPath
 
+/**
+ * 研习 Tab：经典选集列表，展示进度并进入路径详情。
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StudyScreen(
@@ -109,13 +111,6 @@ private fun PathList(
 }
 
 @Composable
-private fun ReadingPath.progressText(): String = when (progressState) {
-    ProgressState.Completed -> stringResource(R.string.study_progress_completed, total)
-    ProgressState.NotStarted -> stringResource(R.string.study_progress_not_started, total)
-    ProgressState.InProgress -> stringResource(R.string.study_progress_in_progress, readCount, total)
-}
-
-@Composable
 private fun PathCard(
     path: ReadingPath,
     onClick: () -> Unit,
@@ -145,9 +140,8 @@ private fun PathCard(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            val progressText = path.progressText()
             Text(
-                text = progressText,
+                text = path.progressText(),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary,
             )
