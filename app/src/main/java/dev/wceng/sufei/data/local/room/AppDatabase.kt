@@ -5,12 +5,14 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
-import dev.wceng.sufei.data.local.room.entity.AnthologyEntity
 import dev.wceng.sufei.data.local.room.entity.PoemEntity
 import dev.wceng.sufei.data.local.room.entity.PoetEntity
-import dev.wceng.sufei.data.local.room.entity.ReadingProgressEntity
 import dev.wceng.sufei.data.local.room.entity.TagEntity
 import dev.wceng.sufei.data.local.room.entity.TuneEntity
+import dev.wceng.sufei.fork.sopho.data.local.room.AnthologyDao  // fork-specific
+import dev.wceng.sufei.fork.sopho.data.local.room.ReadingProgressDao  // fork-specific
+import dev.wceng.sufei.fork.sopho.data.local.room.entity.AnthologyEntity  // fork-specific
+import dev.wceng.sufei.fork.sopho.data.local.room.entity.ReadingProgressEntity  // fork-specific
 import dev.wceng.sufei.util.cleanAuthor
 import dev.wceng.sufei.util.cleanDescription
 import kotlinx.serialization.encodeToString

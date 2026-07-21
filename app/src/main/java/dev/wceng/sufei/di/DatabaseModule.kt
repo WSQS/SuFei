@@ -7,13 +7,13 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import dev.wceng.sufei.data.local.room.AnthologyDao
 import dev.wceng.sufei.data.local.room.AppDatabase
 import dev.wceng.sufei.data.local.room.PoemDao
 import dev.wceng.sufei.data.local.room.PoetDao
-import dev.wceng.sufei.data.local.room.ReadingProgressDao
 import dev.wceng.sufei.data.local.room.TagDao
 import dev.wceng.sufei.data.local.room.TuneDao
+import dev.wceng.sufei.fork.sopho.data.local.room.AnthologyDao  // fork-specific
+import dev.wceng.sufei.fork.sopho.data.local.room.ReadingProgressDao  // fork-specific
 import javax.inject.Singleton
 
 @Module

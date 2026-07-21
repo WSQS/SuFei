@@ -24,7 +24,7 @@ import dev.wceng.sufei.ui.navigation.Home
 import dev.wceng.sufei.ui.navigation.MainTab
 import dev.wceng.sufei.ui.navigation.Navigator
 import dev.wceng.sufei.ui.navigation.Settings
-import dev.wceng.sufei.ui.navigation.Study
+import dev.wceng.sufei.fork.sopho.ui.navigation.Study  // fork-specific
 import dev.wceng.sufei.ui.navigation.toRoute
 
 @Composable

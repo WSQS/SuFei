@@ -1,8 +1,8 @@
-package dev.wceng.sufei.data.local.room.entity
+package dev.wceng.sufei.fork.sopho.data.local.room.entity
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
-import dev.wceng.sufei.data.model.Anthology
+import dev.wceng.sufei.fork.sopho.data.model.Anthology
 
 /**
  * 选集定义表（fork-specific）

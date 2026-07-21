@@ -1,4 +1,4 @@
-package dev.wceng.sufei.data.repository
+package dev.wceng.sufei.fork.sopho.data.repository
 
 /**
  * fork-specific：fork 所需数据的统一导入入口。

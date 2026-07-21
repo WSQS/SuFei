@@ -1,10 +1,10 @@
-package dev.wceng.sufei.data.repository
+package dev.wceng.sufei.fork.sopho.data.repository
 
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
-import dev.wceng.sufei.data.local.room.AnthologyDao
-import dev.wceng.sufei.data.local.room.entity.toEntity
-import dev.wceng.sufei.data.model.Anthology
+import dev.wceng.sufei.fork.sopho.data.local.room.AnthologyDao
+import dev.wceng.sufei.fork.sopho.data.local.room.entity.toEntity
+import dev.wceng.sufei.fork.sopho.data.model.Anthology
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json

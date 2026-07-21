@@ -1,10 +1,10 @@
-package dev.wceng.sufei.ui.screens.study
+package dev.wceng.sufei.fork.sopho.ui.screens.study
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dev.wceng.sufei.data.model.ReadingPath
-import dev.wceng.sufei.data.repository.ReadingPathRepository
+import dev.wceng.sufei.fork.sopho.data.model.ReadingPath
+import dev.wceng.sufei.fork.sopho.data.repository.ReadingPathRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map

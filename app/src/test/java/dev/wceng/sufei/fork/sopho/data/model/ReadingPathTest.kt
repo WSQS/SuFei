@@ -1,4 +1,4 @@
-package dev.wceng.sufei.data.model
+package dev.wceng.sufei.fork.sopho.data.model
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

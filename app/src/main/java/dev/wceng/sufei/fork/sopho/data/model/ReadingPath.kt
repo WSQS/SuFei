@@ -1,4 +1,6 @@
-package dev.wceng.sufei.data.model
+package dev.wceng.sufei.fork.sopho.data.model
+
+import dev.wceng.sufei.data.model.Poem
 
 /**
  * 阅读路径（选集）的领域模型

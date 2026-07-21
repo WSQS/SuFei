@@ -5,6 +5,10 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dev.wceng.sufei.data.repository.*
+import dev.wceng.sufei.fork.sopho.data.repository.ForkImportRepository  // fork-specific
+import dev.wceng.sufei.fork.sopho.data.repository.ForkImportRepositoryImpl  // fork-specific
+import dev.wceng.sufei.fork.sopho.data.repository.ReadingPathRepository  // fork-specific
+import dev.wceng.sufei.fork.sopho.data.repository.ReadingPathRepositoryImpl  // fork-specific
 import javax.inject.Singleton
 
 @Module

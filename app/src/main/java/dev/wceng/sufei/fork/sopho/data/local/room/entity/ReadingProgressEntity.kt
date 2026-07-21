@@ -1,4 +1,4 @@
-package dev.wceng.sufei.data.local.room.entity
+package dev.wceng.sufei.fork.sopho.data.local.room.entity
 
 import androidx.room.Entity
 

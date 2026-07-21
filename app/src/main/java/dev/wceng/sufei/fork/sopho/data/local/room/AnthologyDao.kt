@@ -1,10 +1,10 @@
-package dev.wceng.sufei.data.local.room
+package dev.wceng.sufei.fork.sopho.data.local.room
 
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import dev.wceng.sufei.data.local.room.entity.AnthologyEntity
+import dev.wceng.sufei.fork.sopho.data.local.room.entity.AnthologyEntity
 
 @Dao
 interface AnthologyDao {

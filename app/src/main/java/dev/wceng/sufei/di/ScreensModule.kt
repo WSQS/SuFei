@@ -22,8 +22,8 @@ import dev.wceng.sufei.ui.navigation.Navigator
 import dev.wceng.sufei.ui.navigation.PoetDetail
 import dev.wceng.sufei.ui.navigation.PoetWorks
 import dev.wceng.sufei.ui.navigation.Settings
-import dev.wceng.sufei.ui.navigation.Study
-import dev.wceng.sufei.ui.navigation.PathDetail
+import dev.wceng.sufei.fork.sopho.ui.navigation.Study  // fork-specific
+import dev.wceng.sufei.fork.sopho.ui.navigation.PathDetail  // fork-specific
 import dev.wceng.sufei.ui.screens.collection.CollectionScreen
 import dev.wceng.sufei.ui.screens.detail.DetailScreen
 import dev.wceng.sufei.ui.screens.detail.DetailViewModel
@@ -35,9 +35,9 @@ import dev.wceng.sufei.ui.screens.poet.PoetDetailViewModel
 import dev.wceng.sufei.ui.screens.poetworks.PoetWorksScreen
 import dev.wceng.sufei.ui.screens.poetworks.PoetWorksViewModel
 import dev.wceng.sufei.ui.screens.settings.SettingsScreen
-import dev.wceng.sufei.ui.screens.study.StudyScreen
-import dev.wceng.sufei.ui.screens.study.PathDetailScreen
-import dev.wceng.sufei.ui.screens.study.PathDetailViewModel
+import dev.wceng.sufei.fork.sopho.ui.screens.study.StudyScreen  // fork-specific
+import dev.wceng.sufei.fork.sopho.ui.screens.study.PathDetailScreen  // fork-specific
+import dev.wceng.sufei.fork.sopho.ui.screens.study.PathDetailViewModel  // fork-specific
 
 /**
  * 屏幕路由注册模块

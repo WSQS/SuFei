@@ -1,7 +1,7 @@
-package dev.wceng.sufei.data.repository
+package dev.wceng.sufei.fork.sopho.data.repository
 
-import dev.wceng.sufei.data.model.PathItem
-import dev.wceng.sufei.data.model.ReadingPath
+import dev.wceng.sufei.fork.sopho.data.model.PathItem
+import dev.wceng.sufei.fork.sopho.data.model.ReadingPath
 import kotlinx.coroutines.flow.Flow
 
 /**

@@ -1,4 +1,4 @@
-package dev.wceng.sufei.ui.screens.study
+package dev.wceng.sufei.fork.sopho.ui.screens.study
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -43,9 +43,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import dev.wceng.sufei.R
-import dev.wceng.sufei.data.model.PathItem
-import dev.wceng.sufei.data.model.ProgressState
-import dev.wceng.sufei.data.model.ReadingPath
+import dev.wceng.sufei.fork.sopho.data.model.PathItem
+import dev.wceng.sufei.fork.sopho.data.model.ProgressState
+import dev.wceng.sufei.fork.sopho.data.model.ReadingPath
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
