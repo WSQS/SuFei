@@ -22,6 +22,15 @@ This is a fork of the upstream repository. To minimize merge conflicts when sync
 
 When tempted to edit an upstream file, first ask: can this be achieved via extension (wrapper/inheritance/composition)? If an edit is unavoidable, keep it small and localized, and call it out in the commit message for easier merge resolution later.
 
+## Issue-First Workflow
+
+**All problems, bugs, and feature ideas must be recorded as a GitHub issue BEFORE any implementation work begins.** This includes both user-reported issues and agent-discovered problems during development.
+
+- Never start coding a fix or feature without a corresponding issue.
+- Issues serve as the single source of truth for what is being built and why.
+- PRs should reference the issue they implement (`Closes #N` in the PR body).
+- When in doubt about whether something warrants an issue, create one.
+
 ## Branch Strategy
 
 - `main` tracks upstream; keep it clean for syncing.
