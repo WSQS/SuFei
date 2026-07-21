@@ -45,3 +45,4 @@ Rules:
 - Subject in imperative mood, lowercase, no trailing period, max 72 chars.
 - Body explains the "why" and "what", wrapped at 72 chars.
 - Only commit when explicitly requested; never commit automatically.
+- **PR merge requires explicit user approval**. Never auto-merge; always ask first.
