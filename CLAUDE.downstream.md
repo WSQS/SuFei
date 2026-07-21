@@ -41,6 +41,15 @@ Rules:
 - When an upstream file must reference fork code, the `import dev.wceng.sufei.fork.sopho...` line itself serves as a visible "fork-specific" marker during merge review.
 - Routes, models, and other stateless definitions that upstream might also add should ALWAYS be isolated to fork packages to avoid rename/move conflicts.
 
+## Issue-First Workflow
+
+**All problems, bugs, and feature ideas must be recorded as a GitHub issue BEFORE any implementation work begins.** This includes both user-reported issues and agent-discovered problems during development.
+
+- Never start coding a fix or feature without a corresponding issue.
+- Issues serve as the single source of truth for what is being built and why.
+- PRs should reference the issue they implement (`Closes #N` in the PR body).
+- When in doubt about whether something warrants an issue, create one.
+
 ## Branch Strategy
 
 - `main` tracks upstream; keep it clean for syncing.
