@@ -13,6 +13,7 @@ import dev.wceng.sufei.data.local.room.PoetDao
 import dev.wceng.sufei.data.local.room.TagDao
 import dev.wceng.sufei.data.local.room.TuneDao
 import dev.wceng.sufei.fork.sopho.data.local.room.AnthologyDao  // fork-specific
+import dev.wceng.sufei.fork.sopho.data.local.room.AnthologyOrderingDao  // fork-specific
 import dev.wceng.sufei.fork.sopho.data.local.room.ReadingProgressDao  // fork-specific
 import javax.inject.Singleton
 
@@ -40,6 +41,7 @@ object DatabaseModule {
             AppDatabase.MIGRATION_8_9,
             AppDatabase.MIGRATION_9_10, // fork-specific: reading_progress table
             AppDatabase.MIGRATION_10_11, // fork-specific: anthologies table
+            AppDatabase.MIGRATION_11_12, // fork-specific: anthology_ordering table
         )
             .build()
     }
@@ -74,5 +76,11 @@ object DatabaseModule {
     @Provides
     fun provideAnthologyDao(database: AppDatabase): AnthologyDao {
         return database.anthologyDao()
+    }
+
+    // fork-specific: Anthology original-book ordering
+    @Provides
+    fun provideAnthologyOrderingDao(database: AppDatabase): AnthologyOrderingDao {
+        return database.anthologyOrderingDao()
     }
 }
