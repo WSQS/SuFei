@@ -50,6 +50,14 @@ Rules:
 - PRs should reference the issue they implement (`Closes #N` in the PR body).
 - When in doubt about whether something warrants an issue, create one.
 
+## Decision Records
+
+Architecture and data-model decisions live in `docs/decisions/` (one ADR per
+file, see its README for template and lifecycle). Write one whenever a choice
+would otherwise need to be reverse-engineered from code later. Bundle the ADR
+with the implementing PR; for cross-cutting direction, open the ADR as its own
+PR first.
+
 ## Branch Strategy
 
 - `main` tracks upstream; keep it clean for syncing.
