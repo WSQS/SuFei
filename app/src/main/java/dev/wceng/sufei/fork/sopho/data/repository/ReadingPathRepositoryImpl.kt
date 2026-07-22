@@ -18,9 +18,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * ReadingPathRepository 实现。
+ * [ReadingPathRepository] 实现。
  *
- * 排序策略（ADR-0005）：按 anthology_ordering 的原著 position 排列；
+ * 排序策略���ADR-0005）：按 anthology_ordering 的原著 position 排列；
  * ordering 未覆盖的诗按数据原序追加在后。
  */
 @Singleton

@@ -18,7 +18,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * ForkImportRepository 实现：从 assets 灌入 fork 所需数据。
+ * [ForkImportRepository] 实现：从 assets 灌入 fork 所需数据。
  *
  * - assets/anthologies.jsonl → anthologies 表（选集定义）
  * - assets/anthology_ordering/ 下的 JSONL → anthology_ordering 表（原著顺序）

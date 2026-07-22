@@ -9,8 +9,9 @@ import androidx.room.Entity
  * 按 (pathId, sourceUrl) 复合主键去重，用 sourceUrl 而非 poemId
  * 作稳定标识（见 ADR-0005）。
  *
- * 由 ForkImportRepository 从 assets/anthology_ordering/ 下的
- * JSONL 文件首次启动时导入；运行时只读。
+ * 由 [dev.wceng.sufei.fork.sopho.data.repository.ForkImportRepository]
+ * 从 assets/anthology_ordering/ 下的 JSONL 文件首次启动时导入；
+ * 运行时只读。
  *
  * @param pathId 选集 id，对应 anthologies.id，如 "tangshi_300"
  * @param sourceUrl 古诗文网作品页 URL，对应 poems.sourceUrl
