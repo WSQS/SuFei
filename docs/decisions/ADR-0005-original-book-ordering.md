@@ -40,7 +40,7 @@ page URL), **not** `poemId`. Rationale:
   ×2, `凉州词` ×2). Used only as a last-resort fallback during acquisition,
   not at runtime.
 - **Store ordering as a JSON blob column on `anthologies`.** Rejected: the
-  data is a flat `(pathId, sourceUrl, position, volume) tuple, not arbitrary
+  data is a flat `(pathId, sourceUrl, position, volume)` tuple, not arbitrary
   JSON. A dedicated table is queryable, individually updatable, and
   consistent with how `reading_progress` is modeled (ADR-0004).
 - **Hardcode ordering in Kotlin.** Rejected for the same reason as
@@ -49,8 +49,9 @@ page URL), **not** `poemId`. Rationale:
 ## Consequences
 
 - **Acquisition is one-time and auditable.** Adding or correcting an
-  anthology's order is a data-only change (edit the JSONL); no code or
-  recompile needed.
+  anthology's order is a data-only change (edit the JSONL); no code change
+  or recompilation is needed, though a new app build is required for
+  distribution since the JSONL ships in assets.
 - **Fallback is explicit.** When the ordering JSONL does not cover a poem
   (e.g., the 3 tag-gap poems in issue #6), that poem is not lost — it
   appends at the end in data order. This keeps the feature working while

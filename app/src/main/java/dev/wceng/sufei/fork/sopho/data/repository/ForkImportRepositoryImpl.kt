@@ -10,6 +10,7 @@ import dev.wceng.sufei.fork.sopho.data.model.Anthology
 import dev.wceng.sufei.fork.sopho.data.model.AnthologyOrdering
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -78,6 +79,8 @@ class ForkImportRepositoryImpl @Inject constructor(
                     }
                 }
             }
+        } catch (ce: CancellationException) {
+            throw ce
         } catch (_: Exception) {
         }
         return result

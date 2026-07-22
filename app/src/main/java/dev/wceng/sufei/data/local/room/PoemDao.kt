@@ -52,7 +52,7 @@ interface PoemDao {
     suspend fun getPoemIdsByTag(tag: String): List<String>
 
     // fork-specific: returns sourceUrl + id of anthology members in data order,
-    // for ordering JOIN. List preserves SQL row order for fallback sorting.
-    @Query("SELECT sourceUrl, id FROM poems WHERE tags LIKE '%' || :tag || '%'")
+    // for ordering JOIN. ORDER BY id ensures deterministic fallback ordering.
+    @Query("SELECT sourceUrl, id FROM poems WHERE tags LIKE '%' || :tag || '%' ORDER BY id")
     suspend fun getSourceUrlAndIdByTag(tag: String): List<PoemUrlAndId>
 }
