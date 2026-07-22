@@ -2,6 +2,7 @@ package dev.wceng.sufei.data.local.room
 
 import androidx.room.*
 import dev.wceng.sufei.data.local.room.entity.PoemEntity
+import dev.wceng.sufei.fork.sopho.data.local.room.PoemUrlAndId  // fork-specific
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -55,9 +56,3 @@ interface PoemDao {
     @Query("SELECT sourceUrl, id FROM poems WHERE tags LIKE '%' || :tag || '%'")
     suspend fun getSourceUrlAndIdByTag(tag: String): List<PoemUrlAndId>
 }
-
-/** fork-specific: anthology member projection for ordering JOIN. */
-data class PoemUrlAndId(
-    val sourceUrl: String,
-    val id: String,
-)

@@ -1,7 +1,7 @@
 package dev.wceng.sufei.fork.sopho.data.repository
 
 import dev.wceng.sufei.data.local.room.PoemDao
-import dev.wceng.sufei.data.local.room.PoemUrlAndId
+import dev.wceng.sufei.fork.sopho.data.local.room.PoemUrlAndId
 import dev.wceng.sufei.data.local.room.entity.toPoem
 import dev.wceng.sufei.fork.sopho.data.local.room.AnthologyDao
 import dev.wceng.sufei.fork.sopho.data.local.room.AnthologyOrderingDao
