@@ -3,6 +3,7 @@ package dev.wceng.sufei.fork.sopho.data.repository
 import dev.wceng.sufei.data.local.room.PoemDao
 import dev.wceng.sufei.data.local.room.entity.toPoem
 import dev.wceng.sufei.fork.sopho.data.local.room.AnthologyDao
+import dev.wceng.sufei.fork.sopho.data.local.room.AnthologyOrderingDao
 import dev.wceng.sufei.fork.sopho.data.local.room.ReadingProgressDao
 import dev.wceng.sufei.fork.sopho.data.local.room.entity.ReadingProgressEntity
 import dev.wceng.sufei.fork.sopho.data.local.room.entity.toAnthology
@@ -19,24 +20,27 @@ import javax.inject.Singleton
 /**
  * [ReadingPathRepository] 实现。
  *
- * 响应式策略：选集定义与 poems 成员在导入后静态不变，因此只观察
- * [ReadingProgressDao.observeAnyChange] 作为脏标志；任意进度写入都会
- * 触发所有 observe* 重新聚合。
+ * 排序策略（ADR-0005）：按 anthology_ordering 的原著 position 排列；
+ * ordering 未覆盖的诗按数据原序追加在后。
  */
 @Singleton
 class ReadingPathRepositoryImpl @Inject constructor(
     private val poemDao: PoemDao,
     private val readingProgressDao: ReadingProgressDao,
     private val anthologyDao: AnthologyDao,
+    private val anthologyOrderingDao: AnthologyOrderingDao,
 ) : ReadingPathRepository {
 
-    /** 任意进度变更 → Unit，驱动下游 map 重算。 */
+    /** 任意进度变更 → 驱动所有 observe* 重算。 */
     private val progressTick: Flow<Unit> = readingProgressDao.observeAnyChange().map { }
 
     override fun observeAllPaths(): Flow<List<ReadingPath>> = progressTick
         .map {
             anthologyDao.getAll().map { entity ->
-                resolvePath(entity.toAnthology(), readingProgressDao.getByPath(entity.id))
+                val def = entity.toAnthology()
+                val orderedIds = resolveOrderedIds(def)
+                val progress = readingProgressDao.getByPath(def.id)
+                resolvePath(def, orderedIds, progress)
             }
         }
         .flowOn(Dispatchers.IO)
@@ -44,20 +48,32 @@ class ReadingPathRepositoryImpl @Inject constructor(
     override fun observePath(pathId: String): Flow<ReadingPath?> = progressTick
         .map {
             val def = anthologyDao.getById(pathId)?.toAnthology() ?: return@map null
-            resolvePath(def, readingProgressDao.getByPath(pathId))
+            val orderedIds = resolveOrderedIds(def)
+            val progress = readingProgressDao.getByPath(pathId)
+            resolvePath(def, orderedIds, progress)
         }
         .flowOn(Dispatchers.IO)
 
     override fun observePathItems(pathId: String): Flow<List<PathItem>> = progressTick
         .map {
             val def = anthologyDao.getById(pathId)?.toAnthology() ?: return@map emptyList()
-            resolveItems(def, pathId)
+            val orderedIds = resolveOrderedIds(def)
+            val readMap = readingProgressDao.getByPath(pathId).associateBy { it.poemId }
+            orderedIds.mapIndexedNotNull { index, poemId ->
+                val entity = poemDao.getPoemById(poemId) ?: return@mapIndexedNotNull null
+                PathItem(
+                    poem = entity.toPoem(),
+                    order = index,
+                    isRead = readMap.containsKey(poemId),
+                    readAt = readMap[poemId]?.readAt,
+                )
+            }
         }
         .flowOn(Dispatchers.IO)
 
     override suspend fun markRead(pathId: String, poemId: String) {
         val def = anthologyDao.getById(pathId)?.toAnthology() ?: return
-        val orderedIds = poemDao.getPoemIdsByTag(def.sourceTag)
+        val orderedIds = resolveOrderedIds(def)
         val position = orderedIds.indexOf(poemId).takeIf { it >= 0 } ?: return
         readingProgressDao.upsert(
             ReadingProgressEntity(
@@ -73,11 +89,39 @@ class ReadingPathRepositoryImpl @Inject constructor(
         readingProgressDao.delete(pathId, poemId)
     }
 
-    private suspend fun resolvePath(
+    /**
+     * 返回该选集成员 poemId 列表，按原著 position 排序；
+     * ordering 未覆盖的成员按数据原序追加在后（见 ADR-0005 fallback）。
+     */
+    private suspend fun resolveOrderedIds(def: Anthology): List<String> {
+        val members = poemDao.getSourceUrlAndIdByTag(def.sourceTag)
+        if (members.isEmpty()) return emptyList()
+
+        val urlToId = HashMap<String, String>(members.size)
+        members.forEach { urlToId[it.sourceUrl] = it.id }
+
+        val orderMap = anthologyOrderingDao.getByPath(def.id)
+            .associateBy { it.sourceUrl }
+
+        val ordered = orderMap.values.mapNotNull { o ->
+            urlToId[o.sourceUrl]?.let { o.position to it }
+        }.sortedBy { it.first }.map { it.second }
+
+        if (ordered.size == members.size) return ordered
+
+        val covered = ordered.toHashSet()
+        val fallback = members.map { it.id }.filter { it !in covered }
+        return ordered + fallback
+    }
+
+    /**
+     * 将选集定义、排序后的成员列表、阅读进度聚合为 [ReadingPath]。
+     */
+    private fun resolvePath(
         def: Anthology,
+        orderedIds: List<String>,
         progress: List<ReadingProgressEntity>,
     ): ReadingPath {
-        val orderedIds = poemDao.getPoemIdsByTag(def.sourceTag)
         val readIds = progress.map { it.poemId }.toSet()
         val nextIndex = orderedIds.indexOfFirst { it !in readIds }
         val current = if (nextIndex >= 0) orderedIds[nextIndex] else null
@@ -91,19 +135,5 @@ class ReadingPathRepositoryImpl @Inject constructor(
             currentPoemId = current,
             orderedPoemIds = orderedIds,
         )
-    }
-
-    private suspend fun resolveItems(def: Anthology, pathId: String): List<PathItem> {
-        val orderedIds = poemDao.getPoemIdsByTag(def.sourceTag)
-        val readMap = readingProgressDao.getByPath(pathId).associateBy { it.poemId }
-        return orderedIds.mapIndexedNotNull { index, poemId ->
-            val entity = poemDao.getPoemById(poemId) ?: return@mapIndexedNotNull null
-            PathItem(
-                poem = entity.toPoem(),
-                order = index,
-                isRead = readMap.containsKey(poemId),
-                readAt = readMap[poemId]?.readAt,
-            )
-        }
     }
 }

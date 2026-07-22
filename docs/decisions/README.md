@@ -74,3 +74,4 @@ constraints on future work, etc.).
 | [0002](ADR-0002-anthology-as-reading-unit.md) | Anthology as the reading-path unit | Accepted | 2026-07-21 |
 | [0003](ADR-0003-jsonl-driven-builtin-data.md) | JSONL-driven built-in data with Room persistence | Accepted | 2026-07-21 |
 | [0004](ADR-0004-composite-progress-key.md) | Per-path composite progress key `(pathId, poemId)` | Accepted | 2026-07-21 |
+| [0005](ADR-0005-original-book-ordering.md) | Original-book ordering via external JSONL + sourceUrl join | Accepted | 2026-07-22 |

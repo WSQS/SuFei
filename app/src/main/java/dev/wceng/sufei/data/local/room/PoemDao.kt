@@ -2,6 +2,7 @@ package dev.wceng.sufei.data.local.room
 
 import androidx.room.*
 import dev.wceng.sufei.data.local.room.entity.PoemEntity
+import dev.wceng.sufei.fork.sopho.data.local.room.PoemUrlAndId  // fork-specific
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -46,7 +47,8 @@ interface PoemDao {
     """)
     fun getHighQualityRandomPoems(limit: Int): Flow<List<PoemEntity>>
 
-    // fork-specific: used by ReadingPathRepository to resolve anthology members
-    @Query("SELECT id FROM poems WHERE tags LIKE '%' || :tag || '%'")
-    suspend fun getPoemIdsByTag(tag: String): List<String>
+    // fork-specific: returns sourceUrl + id of anthology members in data order,
+    // for ordering JOIN. ORDER BY id ensures deterministic fallback ordering.
+    @Query("SELECT sourceUrl, id FROM poems WHERE tags LIKE '%' || :tag || '%' ORDER BY id")
+    suspend fun getSourceUrlAndIdByTag(tag: String): List<PoemUrlAndId>
 }
