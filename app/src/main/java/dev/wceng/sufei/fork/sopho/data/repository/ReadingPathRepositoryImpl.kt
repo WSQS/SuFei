@@ -31,6 +31,7 @@ class ReadingPathRepositoryImpl @Inject constructor(
     private val anthologyOrderingDao: AnthologyOrderingDao,
 ) : ReadingPathRepository {
 
+    /** 任意进度变更 → 驱动所有 observe* 重算。 */
     private val progressTick: Flow<Unit> = readingProgressDao.observeAnyChange().map { }
 
     override fun observeAllPaths(): Flow<List<ReadingPath>> = progressTick
@@ -113,6 +114,9 @@ class ReadingPathRepositoryImpl @Inject constructor(
         return ordered + fallback
     }
 
+    /**
+     * 将选集定义、排序后的成员列表、阅读进度聚合为 [ReadingPath]。
+     */
     private fun resolvePath(
         def: Anthology,
         orderedIds: List<String>,
