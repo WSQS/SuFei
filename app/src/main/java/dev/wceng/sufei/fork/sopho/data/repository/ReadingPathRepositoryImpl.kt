@@ -1,7 +1,6 @@
 package dev.wceng.sufei.fork.sopho.data.repository
 
 import dev.wceng.sufei.data.local.room.PoemDao
-import dev.wceng.sufei.fork.sopho.data.local.room.PoemUrlAndId
 import dev.wceng.sufei.data.local.room.entity.toPoem
 import dev.wceng.sufei.fork.sopho.data.local.room.AnthologyDao
 import dev.wceng.sufei.fork.sopho.data.local.room.AnthologyOrderingDao
@@ -18,6 +17,12 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * ReadingPathRepository 实现。
+ *
+ * 排序策略（ADR-0005）：按 anthology_ordering 的原著 position 排列；
+ * ordering 未覆盖的诗按数据原序追加在后。
+ */
 @Singleton
 class ReadingPathRepositoryImpl @Inject constructor(
     private val poemDao: PoemDao,
@@ -83,6 +88,10 @@ class ReadingPathRepositoryImpl @Inject constructor(
         readingProgressDao.delete(pathId, poemId)
     }
 
+    /**
+     * 返回该选集成员 poemId 列表，按原著 position 排序；
+     * ordering 未覆盖的成员按数据原序追加在后（见 ADR-0005 fallback）。
+     */
     private suspend fun resolveOrderedIds(def: Anthology): List<String> {
         val members = poemDao.getSourceUrlAndIdByTag(def.sourceTag)
         if (members.isEmpty()) return emptyList()

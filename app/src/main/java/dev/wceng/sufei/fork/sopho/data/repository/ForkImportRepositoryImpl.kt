@@ -17,6 +17,15 @@ import java.io.InputStreamReader
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * ForkImportRepository 实现：从 assets 灌入 fork 所需数据。
+ *
+ * - assets/anthologies.jsonl → anthologies 表（选集定义）
+ * - assets/anthology_ordering/ 下的 JSONL → anthology_ordering 表（原著顺序）
+ *
+ * 幂等：两张表各自独立检查 count() == 0，按需导入。
+ * 单行 JSON 解析失败静默忽略；assets 缺失不影响启动。
+ */
 @Singleton
 class ForkImportRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -46,19 +55,16 @@ class ForkImportRepositoryImpl @Inject constructor(
 
     private suspend fun importOrderings() {
         val definitions = anthologyDao.getAll()
-        val toInsert = mutableListOf<AnthologyOrderingEntity>()
-        definitions.forEach { def ->
-            val items = readJsonl<AnthologyOrdering>("anthology_ordering/${def.id}.jsonl")
-            items.forEach { item ->
-                toInsert.add(
+        val toInsert = definitions.flatMap { def ->
+            readJsonl<AnthologyOrdering>("anthology_ordering/${def.id}.jsonl")
+                .map { item ->
                     AnthologyOrderingEntity(
                         pathId = def.id,
                         sourceUrl = item.sourceUrl,
                         position = item.position,
                         volume = item.volume,
                     )
-                )
-            }
+                }
         }
         if (toInsert.isNotEmpty()) {
             anthologyOrderingDao.insertAll(toInsert)
