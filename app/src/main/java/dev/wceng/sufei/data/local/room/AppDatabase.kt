@@ -10,8 +10,10 @@ import dev.wceng.sufei.data.local.room.entity.PoetEntity
 import dev.wceng.sufei.data.local.room.entity.TagEntity
 import dev.wceng.sufei.data.local.room.entity.TuneEntity
 import dev.wceng.sufei.fork.sopho.data.local.room.AnthologyDao  // fork-specific
+import dev.wceng.sufei.fork.sopho.data.local.room.AnthologyOrderingDao  // fork-specific
 import dev.wceng.sufei.fork.sopho.data.local.room.ReadingProgressDao  // fork-specific
 import dev.wceng.sufei.fork.sopho.data.local.room.entity.AnthologyEntity  // fork-specific
+import dev.wceng.sufei.fork.sopho.data.local.room.entity.AnthologyOrderingEntity  // fork-specific
 import dev.wceng.sufei.fork.sopho.data.local.room.entity.ReadingProgressEntity  // fork-specific
 import dev.wceng.sufei.util.cleanAuthor
 import dev.wceng.sufei.util.cleanDescription
@@ -25,9 +27,10 @@ import kotlinx.serialization.json.Json
         PoetEntity::class,
         TuneEntity::class,
         ReadingProgressEntity::class,
-        AnthologyEntity::class
+        AnthologyEntity::class,
+        AnthologyOrderingEntity::class
     ],
-    version = 11,
+    version = 12,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -38,6 +41,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun tuneDao(): TuneDao
     abstract fun readingProgressDao(): ReadingProgressDao
     abstract fun anthologyDao(): AnthologyDao
+    abstract fun anthologyOrderingDao(): AnthologyOrderingDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -205,6 +209,21 @@ abstract class AppDatabase : RoomDatabase() {
                         title TEXT NOT NULL,
                         description TEXT NOT NULL,
                         sourceTag TEXT NOT NULL
+                    )
+                """.trimIndent())
+            }
+        }
+
+        // fork-specific: adds anthology_ordering table
+        val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS anthology_ordering (
+                        pathId TEXT NOT NULL,
+                        sourceUrl TEXT NOT NULL,
+                        position INTEGER NOT NULL,
+                        volume TEXT NOT NULL,
+                        PRIMARY KEY(pathId, sourceUrl)
                     )
                 """.trimIndent())
             }
