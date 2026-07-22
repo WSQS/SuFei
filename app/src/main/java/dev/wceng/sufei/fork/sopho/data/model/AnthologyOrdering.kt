@@ -3,7 +3,7 @@ package dev.wceng.sufei.fork.sopho.data.model
 import kotlinx.serialization.Serializable
 
 /**
- * anthology_ordering JSONL 单行模型（fork-specific���。
+ * anthology_ordering JSONL 单行模型（fork-specific）。
  *
  * 采集自古诗文网作品专题页，记录每首诗在原著中的位置。
  * sourceUrl 用于跟 poems 表 JOIN，不用 poemId 以避免数据源
