@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** ReadingPathRepository implementation with original-book ordering support. */
 @Singleton
 class ReadingPathRepositoryImpl @Inject constructor(
     private val poemDao: PoemDao,

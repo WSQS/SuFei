@@ -17,6 +17,7 @@ import java.io.InputStreamReader
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** Imports fork-specific data from assets into Room tables. */
 @Singleton
 class ForkImportRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
