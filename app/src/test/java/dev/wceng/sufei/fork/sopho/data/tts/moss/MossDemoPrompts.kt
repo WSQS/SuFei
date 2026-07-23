@@ -31,7 +31,7 @@ object MossDemoPrompts {
     val XING_XING_COUPLETS = listOf(
         // 行行重行行，与君生别离。
         intArrayOf(10356, 10500, 10500, 10575, 10500, 10500, 10364, 10617, 11307, 10469, 10590, 10788, 10382),
-        // 相去万余里，各在天一涯。
+        // 相去万余里，各在天一涯���
         intArrayOf(10356, 10594, 10452, 10690, 11340, 10463, 10364, 10770, 10405, 10467, 10389, 12974, 10382),
         // 道路阻且长，会面安可知？
         intArrayOf(10356, 6474, 11711, 10715, 10560, 10364, 10434, 10470, 10651, 10433, 10526, 10402),
@@ -46,4 +46,18 @@ object MossDemoPrompts {
         // 弃捐勿复道，努力加餐饭。
         intArrayOf(10356, 11599, 13003, 13198, 10859, 10456, 10364, 2622, 10616, 11798, 11269, 10382),
     )
+
+    // Context slot token IDs (pre-tokenized with SentencePiece)
+    // Instruction: "用深沉的感情朗读，节奏缓慢"
+    val INSTRUCTION_EMOTIONAL = intArrayOf(
+        10356, 10496, 10864, 11219, 10378, 4483, 11952, 11163, 10364, 10846, 12217, 11399, 11030,
+    )
+    // Instruction: "深情朗诵，思念之情"
+    val INSTRUCTION_POETRY = intArrayOf(
+        10356, 10864, 10521, 11952, 13372, 10364, 10670, 11016, 10450, 10521,
+    )
+    // Quality: "high"
+    val QUALITY_HIGH = intArrayOf(1544)
+    // Language: "Chinese"
+    val LANGUAGE_CHINESE = intArrayOf(7020)
 }

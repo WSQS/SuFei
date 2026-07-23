@@ -46,9 +46,12 @@ class MossOnnxEngine(
         voice: String = "Junhao",
         maxFrames: Int = 375,
         seed: Long = 1234L,
+        instructionTokenIds: IntArray? = null,
+        qualityTokenIds: IntArray? = null,
+        languageTokenIds: IntArray? = null,
     ): FloatArray {
         require(textTokenIds.isNotEmpty()) { "textTokenIds must not be empty" }
-        val inputRows = buildInputRows(textTokenIds, voice)
+        val inputRows = buildInputRows(textTokenIds, voice, instructionTokenIds, qualityTokenIds, languageTokenIds)
         val prefillResult = runPrefill(inputRows)
         val audioTokens = runDecode(prefillResult, maxFrames, seed)
         return decodeAudioTokens(audioTokens)
@@ -76,13 +79,23 @@ class MossOnnxEngine(
         return File(manifestDir, alias).canonicalFile
     }
 
-    private fun buildInputRows(textTokenIds: IntArray, voice: String): InputRows {
+    private fun buildInputRows(
+        textTokenIds: IntArray,
+        voice: String,
+        instructionTokenIds: IntArray?,
+        qualityTokenIds: IntArray?,
+        languageTokenIds: IntArray?,
+    ): InputRows {
         val cfg = manifest.ttsConfig
         val rowWidth = cfg.nVq + 1
         val promptAudioCodes = selectBuiltinVoicePromptAudioCodes(voice)
         val prefixTokens = manifest.promptTemplates.userPromptPrefixTokenIds + cfg.audioStartTokenId
+
+        val afterRef = manifest.promptTemplates.userPromptAfterReferenceTokenIds
+        val suffixTemplate = replaceContextSlots(afterRef, instructionTokenIds, qualityTokenIds, languageTokenIds)
+
         val suffixTokens = intArrayOf(cfg.audioEndTokenId) +
-            manifest.promptTemplates.userPromptAfterReferenceTokenIds +
+            suffixTemplate +
             textTokenIds +
             manifest.promptTemplates.assistantPromptPrefixTokenIds +
             intArrayOf(cfg.audioStartTokenId)
@@ -91,6 +104,40 @@ class MossOnnxEngine(
         rows += buildAudioRows(promptAudioCodes, cfg, rowWidth)
         rows += buildTextRows(suffixTokens, cfg, rowWidth)
         return InputRows(rows.toTypedArray(), IntArray(rows.size) { 1 })
+    }
+
+    private fun replaceContextSlots(
+        template: IntArray,
+        instructionTokenIds: IntArray?,
+        qualityTokenIds: IntArray?,
+        languageTokenIds: IntArray?,
+    ): IntArray {
+        if (instructionTokenIds == null && qualityTokenIds == null && languageTokenIds == null) {
+            return template
+        }
+        // Template structure (by None occurrence index):
+        // 0: Instruction, 1: Tokens, 2: Quality, 3: Sound Event, 4: Ambient Sound, 5: Language
+        val replacements = arrayOf(
+            instructionTokenIds, null, qualityTokenIds, null, null, languageTokenIds
+        )
+        val result = ArrayList<Int>()
+        var i = 0
+        var noneCount = 0
+        while (i < template.size) {
+            if (i + 1 < template.size && template[i] == 505 && template[i + 1] == 587) {
+                val slot = noneCount
+                if (slot < replacements.size && replacements[slot] != null) {
+                    result.addAll(replacements[slot]!!.toList())
+                    i += 2
+                    noneCount++
+                    continue
+                }
+                noneCount++
+            }
+            result.add(template[i])
+            i++
+        }
+        return result.toIntArray()
     }
 
     private fun buildTextRows(tokens: IntArray, cfg: TtsConfig, rowWidth: Int): List<IntArray> {

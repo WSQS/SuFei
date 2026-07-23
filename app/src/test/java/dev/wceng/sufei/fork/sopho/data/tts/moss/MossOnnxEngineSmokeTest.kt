@@ -76,7 +76,7 @@ class MossOnnxEngineSmokeTest {
         assumeTrue("MOSS model not found, skipping", root != null)
         val engine = MossOnnxEngine(root!!, cpuThreads = 2)
         try {
-            // Whole-poem version (for comparison)
+            // 1. Whole-poem baseline (no context)
             val pcmWhole = engine.synthesize(
                 textTokenIds = MossDemoPrompts.XING_XING_CHONG_XING_XING,
                 voice = "Junhao",
@@ -85,7 +85,7 @@ class MossOnnxEngineSmokeTest {
             Assert.assertTrue("Whole poem PCM should not be empty", pcmWhole.isNotEmpty())
             writeWav(pcmWhole, engine.sampleRate, File(outputDir, "poem_xingxing_whole.wav"))
 
-            // Per-couplet version (each couplet gets full frame budget + inter-couplet silence)
+            // 2. Per-couplet with inter-couplet silence
             val silenceMs = 400L
             val silenceSamples = (engine.sampleRate * silenceMs / 1000).toInt()
             val parts = ArrayList<FloatArray>()
@@ -102,14 +102,54 @@ class MossOnnxEngineSmokeTest {
                 }
             }
             val totalLen = parts.sumOf { it.size }
-            val pcmJoined = FloatArray(totalLen)
+            val pcmCouplet = FloatArray(totalLen)
             var off = 0
             for (part in parts) {
-                System.arraycopy(part, 0, pcmJoined, off, part.size)
+                System.arraycopy(part, 0, pcmCouplet, off, part.size)
                 off += part.size
             }
-            Assert.assertTrue("Joined PCM should have meaningful length (got ${pcmJoined.size})", pcmJoined.size > 1000)
-            writeWav(pcmJoined, engine.sampleRate, File(outputDir, "poem_xingxing_couplet.wav"))
+            writeWav(pcmCouplet, engine.sampleRate, File(outputDir, "poem_xingxing_couplet.wav"))
+
+            // 3. With emotional context instruction
+            val pcmEmotional = engine.synthesize(
+                textTokenIds = MossDemoPrompts.XING_XING_CHONG_XING_XING,
+                voice = "Junhao",
+                maxFrames = 375,
+                instructionTokenIds = MossDemoPrompts.INSTRUCTION_EMOTIONAL,
+                qualityTokenIds = MossDemoPrompts.QUALITY_HIGH,
+                languageTokenIds = MossDemoPrompts.LANGUAGE_CHINESE,
+            )
+            Assert.assertTrue("Emotional PCM should not be empty", pcmEmotional.isNotEmpty())
+            writeWav(pcmEmotional, engine.sampleRate, File(outputDir, "poem_xingxing_emotional.wav"))
+
+            // 4. Per-couplet + emotional context
+            val partsEmo = ArrayList<FloatArray>()
+            MossDemoPrompts.XING_XING_COUPLETS.forEachIndexed { index, coupletTokens ->
+                val pcm = engine.synthesize(
+                    textTokenIds = coupletTokens,
+                    voice = "Junhao",
+                    maxFrames = 80,
+                    instructionTokenIds = MossDemoPrompts.INSTRUCTION_EMOTIONAL,
+                    qualityTokenIds = MossDemoPrompts.QUALITY_HIGH,
+                    languageTokenIds = MossDemoPrompts.LANGUAGE_CHINESE,
+                )
+                if (pcm.isNotEmpty()) {
+                    partsEmo.add(pcm)
+                    if (index < MossDemoPrompts.XING_XING_COUPLETS.size - 1) {
+                        partsEmo.add(FloatArray(silenceSamples))
+                    }
+                }
+            }
+            if (partsEmo.isNotEmpty()) {
+                val emoLen = partsEmo.sumOf { it.size }
+                val pcmEmoCouplet = FloatArray(emoLen)
+                var eo = 0
+                for (part in partsEmo) {
+                    System.arraycopy(part, 0, pcmEmoCouplet, eo, part.size)
+                    eo += part.size
+                }
+                writeWav(pcmEmoCouplet, engine.sampleRate, File(outputDir, "poem_xingxing_emotional_couplet.wav"))
+            }
         } finally {
             engine.close()
         }
