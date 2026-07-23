@@ -30,7 +30,15 @@ class MossOnnxEngineSmokeTest {
     fun synthesizeChinese_nonEmpty() {
         val root = modelRoot()
         assumeTrue("MOSS model not found, skipping", root != null)
-        val engine = MossOnnxEngine(root!!, cpuThreads = 2)
+        println("MOSS model root: ${root!!.absolutePath}")
+        println("Files in root: ${root.listFiles()?.map { it.name }}")
+        val engine = try {
+            MossOnnxEngine(root, cpuThreads = 2)
+        } catch (e: Throwable) {
+            println("ENGINE INIT FAILED: ${e::class.java.name}: ${e.message}")
+            e.printStackTrace()
+            throw e
+        }
         try {
             val pcm = engine.synthesize(
                 textTokenIds = MossDemoPrompts.CHINESE_TOKEN_IDS,
