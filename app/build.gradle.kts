@@ -150,6 +150,7 @@ dependencies {
 
     // MOSS-TTS-Nano ONNX Runtime (exploration, issue #37)
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.27.0")
+    testImplementation("com.microsoft.onnxruntime:onnxruntime:1.27.0")
 }
 
 protobuf {
