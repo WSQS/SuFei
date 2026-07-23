@@ -19,10 +19,11 @@ class MossOnnxEngineSmokeTest {
             File(System.getProperty("user.home"), ".cache/moss-models/MOSS-TTS-Nano-100M-ONNX"),
             File(System.getenv("LOCALAPPDATA") ?: "", "moss-models/MOSS-TTS-Nano-100M-ONNX"),
             File("moss-models/MOSS-TTS-Nano-100M-ONNX"),
-            File(System.getenv("MOSS_MODEL_DIR") ?: "", "MOSS-TTS-Nano-100M-ONNX"),
+            File(System.getProperty("MOSS_MODEL_DIR", System.getenv("MOSS_MODEL_DIR") ?: ""), "MOSS-TTS-Nano-100M-ONNX"),
+            File(System.getProperty("MOSS_MODEL_DIR", System.getenv("MOSS_MODEL_DIR") ?: "")),
         )
         return candidates.firstOrNull { dir ->
-            File(dir, "browser_poc_manifest.json").isFile
+            dir.isDirectory && File(dir, "browser_poc_manifest.json").isFile
         }
     }
 
