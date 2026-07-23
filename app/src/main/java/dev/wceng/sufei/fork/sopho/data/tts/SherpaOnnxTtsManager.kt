@@ -117,6 +117,8 @@ class SherpaOnnxTtsManager @Inject constructor(
         )
     }
 
+    private var pendingSentences: List<String> = emptyList()
+
     fun speak(sentences: List<String>) {
         if (tts == null) {
             Log.w(TAG, "TTS not ready yet")
@@ -125,8 +127,9 @@ class SherpaOnnxTtsManager @Inject constructor(
         _isPlaying.value = true
         _currentSentenceIndex.value = 0
         stopped = false
-        scope.launch {
-            val track = audioTrack ?: return@launch
+        pendingSentences = sentences
+        Thread {
+            val track = audioTrack ?: return@Thread
             track.play()
             sentences.forEachIndexed { index, sentence ->
                 if (stopped) return@forEachIndexed
@@ -135,20 +138,24 @@ class SherpaOnnxTtsManager @Inject constructor(
                     text = sentence,
                     sid = 0,
                     speed = 0.9f,
-                ) { samples ->
-                    if (!stopped) {
-                        track.write(samples, 0, samples.size, AudioTrack.WRITE_BLOCKING)
-                        1
-                    } else {
-                        0
-                    }
-                }
+                    callback = this::audioCallback,
+                )
             }
             if (!stopped) {
                 _isPlaying.value = false
                 _currentSentenceIndex.value = null
             }
             track.stop()
+        }.start()
+    }
+
+    private fun audioCallback(samples: FloatArray): Int {
+        if (!stopped) {
+            audioTrack?.write(samples, 0, samples.size, AudioTrack.WRITE_BLOCKING)
+            return 1
+        } else {
+            audioTrack?.stop()
+            return 0
         }
     }
 
