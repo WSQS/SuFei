@@ -24,6 +24,12 @@ android {
     namespace = "dev.wceng.sufei"
     compileSdk = 36
 
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+
     defaultConfig {
         applicationId = "dev.wceng.sufei"
         minSdk = 23
@@ -136,6 +142,9 @@ dependencies {
     // Glance AppWidget
     implementation(libs.glance.appwidget)
     implementation(libs.glance.material3)
+
+    // Sherpa-ONNX (neural TTS POC, issue #35)
+    implementation(files("libs/sherpa-onnx-1.13.4.aar"))
 
     testImplementation(libs.junit)
     testImplementation(libs.mockk)

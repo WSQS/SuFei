@@ -12,6 +12,7 @@ import dev.wceng.sufei.data.model.UserPreferences
 import dev.wceng.sufei.data.repository.PoemRepository
 import dev.wceng.sufei.data.repository.UserPreferencesRepository
 import dev.wceng.sufei.data.tts.TtsManager
+import dev.wceng.sufei.fork.sopho.data.tts.ForkTtsOrchestrator
 import dev.wceng.sufei.ui.navigation.Detail
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -24,11 +25,12 @@ class DetailViewModel @AssistedInject constructor(
     private val poemRepository: PoemRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val ttsManager: TtsManager,
+    private val forkTtsOrchestrator: ForkTtsOrchestrator,
     @Assisted val detail: Detail
 ) : ViewModel() {
 
-    val isTtsPlaying = ttsManager.isPlaying
-    val currentSentenceIndex = ttsManager.currentSentenceIndex
+    val isTtsPlaying = forkTtsOrchestrator.isPlaying
+    val currentSentenceIndex = forkTtsOrchestrator.currentSentenceIndex
 
     /**
      * 发射诗人 ID 的渠道
@@ -78,20 +80,20 @@ class DetailViewModel @AssistedInject constructor(
 
     fun toggleTts(sentences: List<String>) {
         if (isTtsPlaying.value) {
-            ttsManager.stop()
+            forkTtsOrchestrator.stop()
         } else {
-            ttsManager.speak(sentences)
+            forkTtsOrchestrator.speak(sentences)
         }
     }
 
     fun stopTts() {
-        ttsManager.stop()
+        forkTtsOrchestrator.stop()
     }
 
     override fun onCleared() {
         super.onCleared()
         _poetIdChannel.close()
-        ttsManager.release()
+        forkTtsOrchestrator.release()
     }
 
     @AssistedFactory
