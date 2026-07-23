@@ -39,3 +39,7 @@
 # nlp-common - 可能涉及的分词相关依赖
 -keep class com.github.houbb.nlp.common.** { *; }
 -dontwarn com.github.houbb.nlp.common.**
+
+# Sherpa-ONNX (neural TTS, JNI native bridge)
+-keep class com.k2fsa.sherpa.onnx.** { *; }
+-dontwarn com.k2fsa.sherpa.onnx.**
