@@ -48,13 +48,13 @@ object MossDemoPrompts {
     )
 
     // Context slot token IDs (pre-tokenized with SentencePiece)
-    // Instruction: "用深沉的感情朗读，节奏缓慢"
-    val INSTRUCTION_EMOTIONAL = intArrayOf(
-        10356, 10496, 10864, 11219, 10378, 4483, 11952, 11163, 10364, 10846, 12217, 11399, 11030,
-    )
-    // Instruction: "深情朗诵，思念之情"
+    // Instruction: "古诗朗诵，节奏舒缓，韵律分明"
     val INSTRUCTION_POETRY = intArrayOf(
-        10356, 10864, 10521, 11952, 13372, 10364, 10670, 11016, 10450, 10521,
+        10356, 10992, 11657, 11952, 13372, 10364, 10846, 12217, 11786, 11399, 10364, 12953, 11147, 10512, 10563,
+    )
+    // Instruction: "朗诵古诗，抑扬顿挫，每句结尾停顿"
+    val INSTRUCTION_CADENCE = intArrayOf(
+        10356, 11952, 13372, 10992, 11657, 10364, 12258, 11744, 11213, 12910, 10364, 10727, 10972, 10654, 11947, 11150, 11213,
     )
     // Quality: "high"
     val QUALITY_HIGH = intArrayOf(1544)

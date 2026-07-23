@@ -110,46 +110,29 @@ class MossOnnxEngineSmokeTest {
             }
             writeWav(pcmCouplet, engine.sampleRate, File(outputDir, "poem_xingxing_couplet.wav"))
 
-            // 3. With emotional context instruction
-            val pcmEmotional = engine.synthesize(
+            // 3. With poetry instruction context
+            val pcmPoetry = engine.synthesize(
                 textTokenIds = MossDemoPrompts.XING_XING_CHONG_XING_XING,
                 voice = "Junhao",
                 maxFrames = 375,
-                instructionTokenIds = MossDemoPrompts.INSTRUCTION_EMOTIONAL,
+                instructionTokenIds = MossDemoPrompts.INSTRUCTION_POETRY,
                 qualityTokenIds = MossDemoPrompts.QUALITY_HIGH,
                 languageTokenIds = MossDemoPrompts.LANGUAGE_CHINESE,
             )
-            Assert.assertTrue("Emotional PCM should not be empty", pcmEmotional.isNotEmpty())
-            writeWav(pcmEmotional, engine.sampleRate, File(outputDir, "poem_xingxing_emotional.wav"))
+            Assert.assertTrue("Poetry PCM should not be empty", pcmPoetry.isNotEmpty())
+            writeWav(pcmPoetry, engine.sampleRate, File(outputDir, "poem_xingxing_poetry.wav"))
 
-            // 4. Per-couplet + emotional context
-            val partsEmo = ArrayList<FloatArray>()
-            MossDemoPrompts.XING_XING_COUPLETS.forEachIndexed { index, coupletTokens ->
-                val pcm = engine.synthesize(
-                    textTokenIds = coupletTokens,
-                    voice = "Junhao",
-                    maxFrames = 80,
-                    instructionTokenIds = MossDemoPrompts.INSTRUCTION_EMOTIONAL,
-                    qualityTokenIds = MossDemoPrompts.QUALITY_HIGH,
-                    languageTokenIds = MossDemoPrompts.LANGUAGE_CHINESE,
-                )
-                if (pcm.isNotEmpty()) {
-                    partsEmo.add(pcm)
-                    if (index < MossDemoPrompts.XING_XING_COUPLETS.size - 1) {
-                        partsEmo.add(FloatArray(silenceSamples))
-                    }
-                }
-            }
-            if (partsEmo.isNotEmpty()) {
-                val emoLen = partsEmo.sumOf { it.size }
-                val pcmEmoCouplet = FloatArray(emoLen)
-                var eo = 0
-                for (part in partsEmo) {
-                    System.arraycopy(part, 0, pcmEmoCouplet, eo, part.size)
-                    eo += part.size
-                }
-                writeWav(pcmEmoCouplet, engine.sampleRate, File(outputDir, "poem_xingxing_emotional_couplet.wav"))
-            }
+            // 4. With cadence instruction (抑扬顿挫)
+            val pcmCadence = engine.synthesize(
+                textTokenIds = MossDemoPrompts.XING_XING_CHONG_XING_XING,
+                voice = "Junhao",
+                maxFrames = 375,
+                instructionTokenIds = MossDemoPrompts.INSTRUCTION_CADENCE,
+                qualityTokenIds = MossDemoPrompts.QUALITY_HIGH,
+                languageTokenIds = MossDemoPrompts.LANGUAGE_CHINESE,
+            )
+            Assert.assertTrue("Cadence PCM should not be empty", pcmCadence.isNotEmpty())
+            writeWav(pcmCadence, engine.sampleRate, File(outputDir, "poem_xingxing_cadence.wav"))
         } finally {
             engine.close()
         }
