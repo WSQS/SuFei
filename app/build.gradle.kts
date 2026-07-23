@@ -26,7 +26,7 @@ android {
 
     defaultConfig {
         applicationId = "dev.wceng.sufei"
-        minSdk = 23
+        minSdk = 24
         targetSdk = 35
         versionCode = 10
         versionName = "1.6.1"
@@ -147,6 +147,9 @@ dependencies {
     androidTestImplementation(libs.androidx.room.testing)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+
+    // MOSS-TTS-Nano ONNX Runtime (exploration, issue #37)
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.27.0")
 }
 
 protobuf {
