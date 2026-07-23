@@ -62,7 +62,6 @@ class SherpaOnnxTtsManager @Inject constructor(
                             model = "$dir/$MODEL_FILE",
                             lexicon = "$dir/$LEXICON_FILE",
                             tokens = "$dir/$TOKENS_FILE",
-                            dataDir = dir,
                         ),
                         numThreads = 2,
                         debug = false,
