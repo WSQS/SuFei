@@ -2,17 +2,14 @@ package dev.wceng.sufei.fork.sopho.data.tts.moss
 
 import org.junit.Assert
 import org.junit.Assume.assumeTrue
-import org.junit.Rule
 import org.junit.Test
-import org.junit.rules.TemporaryFolder
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 class MossOnnxEngineSmokeTest {
 
-    @get:Rule
-    val tempFolder = TemporaryFolder()
+    private val outputDir = File("build/tts-samples").apply { mkdirs() }
 
     private fun modelRoot(): File? {
         val candidates = listOf(
@@ -48,7 +45,7 @@ class MossOnnxEngineSmokeTest {
             )
             Assert.assertTrue("PCM output should not be empty", pcm.isNotEmpty())
             Assert.assertTrue("PCM output should have meaningful length (got ${pcm.size})", pcm.size > 1000)
-            writeWav(pcm, engine.sampleRate, tempFolder.newFile("chinese_demo.wav"))
+            writeWav(pcm, engine.sampleRate, File(outputDir, "chinese_demo.wav"))
         } finally {
             engine.close()
         }
@@ -67,7 +64,7 @@ class MossOnnxEngineSmokeTest {
             )
             Assert.assertTrue("PCM output should not be empty", pcm.isNotEmpty())
             Assert.assertTrue("PCM output should have meaningful length (got ${pcm.size})", pcm.size > 1000)
-            writeWav(pcm, engine.sampleRate, tempFolder.newFile("english_demo.wav"))
+            writeWav(pcm, engine.sampleRate, File(outputDir, "english_demo.wav"))
         } finally {
             engine.close()
         }

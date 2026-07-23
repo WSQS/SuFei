@@ -63,26 +63,11 @@ jobs:
             --tests "dev.wceng.sufei.fork.sopho.data.tts.moss.MossOnnxEngineSmokeTest" \
             -DMOSS_MODEL_DIR="$HOME/.cache/moss-models"
 
-      - name: Upload audio samples
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: tts-audio-samples
-          path: app/build/test-results/**/*.wav
-          if-no-files-found: ignore
-          retention-days: 14
-
-      - name: Copy WAV files for artifact
-        if: always()
-        run: |
-          mkdir -p tts-output
-          find . -name "*.wav" -path "*/test*" -exec cp {} tts-output/ \; 2>/dev/null || true
-
       - name: Upload WAV samples
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: tts-wav-samples
-          path: tts-output/*.wav
-          if-no-files-found: ignore
+          name: tts-audio-samples
+          path: app/build/tts-samples/*.wav
+          if-no-files-found: warn
           retention-days: 14
