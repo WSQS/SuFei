@@ -70,6 +70,25 @@ class MossOnnxEngineSmokeTest {
         }
     }
 
+    @Test
+    fun synthesizePoem_xingXingChongXingXing() {
+        val root = modelRoot()
+        assumeTrue("MOSS model not found, skipping", root != null)
+        val engine = MossOnnxEngine(root!!, cpuThreads = 2)
+        try {
+            val pcm = engine.synthesize(
+                textTokenIds = MossDemoPrompts.XING_XING_CHONG_XING_XING,
+                voice = "Junhao",
+                maxFrames = 375,
+            )
+            Assert.assertTrue("PCM output should not be empty", pcm.isNotEmpty())
+            Assert.assertTrue("PCM output should have meaningful length (got ${pcm.size})", pcm.size > 1000)
+            writeWav(pcm, engine.sampleRate, File(outputDir, "poem_xingxing.wav"))
+        } finally {
+            engine.close()
+        }
+    }
+
     private fun writeWav(samples: FloatArray, sampleRate: Int, outputFile: File) {
         val channels = 1
         val dataSize = samples.size * 2
