@@ -76,14 +76,40 @@ class MossOnnxEngineSmokeTest {
         assumeTrue("MOSS model not found, skipping", root != null)
         val engine = MossOnnxEngine(root!!, cpuThreads = 2)
         try {
-            val pcm = engine.synthesize(
+            // Whole-poem version (for comparison)
+            val pcmWhole = engine.synthesize(
                 textTokenIds = MossDemoPrompts.XING_XING_CHONG_XING_XING,
                 voice = "Junhao",
                 maxFrames = 375,
             )
-            Assert.assertTrue("PCM output should not be empty", pcm.isNotEmpty())
-            Assert.assertTrue("PCM output should have meaningful length (got ${pcm.size})", pcm.size > 1000)
-            writeWav(pcm, engine.sampleRate, File(outputDir, "poem_xingxing.wav"))
+            Assert.assertTrue("Whole poem PCM should not be empty", pcmWhole.isNotEmpty())
+            writeWav(pcmWhole, engine.sampleRate, File(outputDir, "poem_xingxing_whole.wav"))
+
+            // Per-couplet version (each couplet gets full frame budget + inter-couplet silence)
+            val silenceMs = 400L
+            val silenceSamples = (engine.sampleRate * silenceMs / 1000).toInt()
+            val parts = ArrayList<FloatArray>()
+            MossDemoPrompts.XING_XING_COUPLETS.forEachIndexed { index, coupletTokens ->
+                val pcm = engine.synthesize(
+                    textTokenIds = coupletTokens,
+                    voice = "Junhao",
+                    maxFrames = 80,
+                )
+                Assert.assertTrue("Couplet $index PCM should not be empty", pcm.isNotEmpty())
+                parts.add(pcm)
+                if (index < MossDemoPrompts.XING_XING_COUPLETS.size - 1) {
+                    parts.add(FloatArray(silenceSamples))
+                }
+            }
+            val totalLen = parts.sumOf { it.size }
+            val pcmJoined = FloatArray(totalLen)
+            var off = 0
+            for (part in parts) {
+                System.arraycopy(part, 0, pcmJoined, off, part.size)
+                off += part.size
+            }
+            Assert.assertTrue("Joined PCM should have meaningful length (got ${pcmJoined.size})", pcmJoined.size > 1000)
+            writeWav(pcmJoined, engine.sampleRate, File(outputDir, "poem_xingxing_couplet.wav"))
         } finally {
             engine.close()
         }
