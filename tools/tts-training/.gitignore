@@ -1,0 +1,14 @@
+venv/
+venv_moss/
+MOSS-TTS-Nano/
+CosyVoice/
+models/
+output/
+data/audio/
+data/*.jsonl
+*.wav
+*.bin
+*.safetensors
+*.onnx
+*.pyc
+__pycache__/
