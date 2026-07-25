@@ -2,6 +2,94 @@
 
 使用 CosyVoice 3 0.5B 生成高质量诗歌朗读音频，微调 MOSS-TTS-Nano 用于端侧部署。
 
+## 背景
+
+### 问题
+
+系统 TTS 和通用小模型（Kokoro 82M、MOSS-TTS-Nano 100M）在诗歌朗读场景下质量不足：
+- 节奏不自然（忽快忽慢）
+- 缺乏情感和韵律感
+- 多音字发音错误
+
+### 方案：知识蒸馏（教师→学生）
+
+用一个强大的教师模型（CosyVoice 3 0.5B）生成高质量朗读音频，
+再用这些音频微调一个适合 Android 端侧部署的小模型（MOSS-TTS-Nano 100M）。
+
+关键假设：诗歌朗读是一个极度收窄的领域（语料有限、风格一致），
+专用微调后的 100M 模型可以达到远超通用 100M 模型的效果。
+
+### 模型角色
+
+| 角色 | 模型 | 参数量 | 运行环境 | 用途 |
+|---|---|---|---|---|
+| 教师 | CosyVoice 3 (Fun-CosyVoice3-0.5B-2512) | 0.5B | WSL + GPU | 生成高质量朗读音频 |
+| 学生 | MOSS-TTS-Nano | 0.1B | Windows GPU 训练 / Android 推理 | 学习教师的朗读风格 |
+| 编解码器 | MOSS-Audio-Tokenizer-Nano | 0.02B | Windows GPU | 把教师 WAV 转为学生训练用的 token 序列 |
+
+## 核心概念
+
+### train_raw.jsonl
+
+训练管线的输入文件，每行一条 JSON 记录，描述一个训练样本：
+
+```json
+{
+  "audio": "./audio/01_6105b29267b5.wav",
+  "text": "客从远方来，遗我一端绮。相去万余里，故人心尚尔。",
+  "language": "zh"
+}
+```
+
+| 字段 | 说明 |
+|---|---|
+| `audio` | 教师生成的 WAV 文件路径 |
+| `text` | 诗歌原文（去除注释、换行） |
+| `language` | 语言代码 |
+| `instruction` | 可选，风格指令（如"自然、克制的朗读方式"） |
+| `ref_audio` | 可选，参考音频（用于音色克隆训练） |
+
+此文件由 `build_train_jsonl.py` �� CosyVoice 生成的 WAV 和 app 中的诗歌数据自动构建。
+
+### audio_codes
+
+MOSS-TTS-Nano 是一个**音频 token 自回归模型**——它不直接处理波形，
+而是将声音编码为离散的 token 序列（类似语言模型中的文字 token）。
+
+```
+WAV 波形 → MOSS-Audio-Tokenizer-Nano → audio_codes (整数序列)
+                                         ↓
+text tokens + audio_codes → MOSS-TTS-Nano 训练 (下一个 token 预测)
+```
+
+audio_codes 的结构：
+- 每帧（约 80ms 音频）对应 N 个 codebook 的整数
+- N = 16（量化器数量，也叫 n_vq）
+- 每个 codebook 的取值范围 ~1024
+
+例如一段 5 秒的音频编码后可能有 ~62 帧 × 16 codebook = 992 个整数。
+
+`prepare_data.py` 的工作就是用 Audio Tokenizer 把 `train_raw.jsonl` 中的每个 WAV 编码为
+audio_codes，追加到每条记录中，输出 `train_with_codes.jsonl`：
+
+```json
+{
+  "audio": "./audio/01_xxx.wav",
+  "text": "客从远方来...",
+  "language": "zh",
+  "audio_codes": [[123, 456, ...], [789, 012, ...], ...]
+}
+```
+
+### 为什么不直接用 WAV 训练？
+
+| 维度 | 直接用 WAV | 用 audio_codes |
+|---|---|---|
+| 序列长度 | 5 秒音频 = 80,000 个采样点 | 5 秒音频 = ~62 帧 |
+| 训练难度 | 极长序列，自回归不可行 | 序列长度可控（≤1024） |
+| 模型设计 | 需要波形生成器 | 复用 LLM 架构（下一个 token 预测） |
+| 推理效率 | 慢 | 快（生成 token 后一次性解码为 WAV） |
+
 ## 架构
 
 ```
