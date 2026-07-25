@@ -49,7 +49,7 @@
 | `instruction` | 可选，风格指令（如"自然、克制的朗读方式"） |
 | `ref_audio` | 可选，参考音频（用于音色克隆训练） |
 
-此文件由 `build_train_jsonl.py` �� CosyVoice 生成的 WAV 和 app 中的诗歌数据自动构建。
+此文件由 `build_train_jsonl.py` 从 CosyVoice 生成的 WAV 和 app 中的诗歌数据自动构建。
 
 ### audio_codes
 
