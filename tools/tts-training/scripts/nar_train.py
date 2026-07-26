@@ -404,10 +404,12 @@ def train(args):
                 mel_mask[:, :T_min],
             )
 
-            # Duration loss (MSE on log, masked on phone positions)
-            log_dur_gt = torch.log(durations_gt.float().clamp(min=1))
+            # Duration loss (L1 on log, masked on phone positions)
+            # Clip extreme durations (punctuation pauses) to avoid MSE blowup
+            dur_clipped = durations_gt.float().clamp(min=1, max=100)
+            log_dur_gt = torch.log(dur_clipped)
             L_phone = min(log_dur_pred.size(1), log_dur_gt.size(1))
-            dur_loss = masked_mse_loss(
+            dur_loss = masked_l1_loss(
                 log_dur_pred[:, :L_phone],
                 log_dur_gt[:, :L_phone],
                 phone_mask[:, :L_phone],

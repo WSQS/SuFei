@@ -72,7 +72,8 @@ def main():
 
     # Load test set
     with open(TEST_SET, encoding="utf-8") as f:
-        test_set = json.load(f)
+        test_data = json.load(f)
+    test_set = test_data["samples"]
     print(f"Test set: {len(test_set)} poems")
 
     # Load HiFi-GAN
@@ -91,7 +92,7 @@ def main():
 
     for item in test_set:
         poem_id = item.get("poem_id", item.get("id", "unknown"))
-        text = item["full_text"]
+        text = item["content"]
         title = item.get("title", "")
         category = item.get("category", "unknown")
 
@@ -131,8 +132,8 @@ def main():
 
         # Check for early stop / silence
         audio_rms = np.sqrt(np.mean(audio ** 2))
-        is_silent = audio_rms < 0.001
-        is_short = audio_dur < 1.0
+        is_silent = bool(audio_rms < 0.001)
+        is_short = bool(audio_dur < 1.0)
 
         rtf = infer_time / audio_dur if audio_dur > 0 else float("inf")
 
