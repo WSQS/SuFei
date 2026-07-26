@@ -1,5 +1,6 @@
 venv/
 venv_moss/
+venv_paddle/
 MOSS-TTS-Nano/
 CosyVoice/
 models/
@@ -8,6 +9,12 @@ data/audio/
 data/*.jsonl
 data/*.log
 data/wandb/
+data/mfa_corpus/
+data/mfa_corpus_char/
+data/mfa_corpus_plain/
+data/mfa_char_dictionary.txt
+data/mfa_aligned/
+data/mfa_validated/
 wandb/
 *.wav
 *.bin
@@ -18,3 +25,6 @@ __pycache__/
 
 models/paddlespeech_onnx/
 venv_paddle/
+tools/tts-training/data/mfa_corpus/
+tools/tts-training/data/mfa_corpus_plain/
+tools/tts-training/data/mfa_validated/
