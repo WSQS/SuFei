@@ -28,6 +28,27 @@ def clean_text(text):
     return text.strip()
 
 
+def build_full_text(poem):
+    """Build text matching what the teacher model (CosyVoice 3) was given.
+
+    Format: {title}，{dynasty}·{author}。{content}
+    Must stay in sync with generate_poetry.py build_text().
+    """
+    content = clean_text(poem["content"])
+    title = poem.get("title", "")
+    author = poem.get("author", "")
+    dynasty = poem.get("dynasty", "")
+
+    prefix_parts = [title]
+    if dynasty and author:
+        prefix_parts.append(f"{dynasty}·{author}")
+    elif author:
+        prefix_parts.append(author)
+    prefix = "，".join(prefix_parts) + "。"
+
+    return f"{prefix}{content}"
+
+
 def load_all_poems():
     """Load all poems that have generated WAV files."""
     poems = {}
@@ -70,7 +91,7 @@ def main():
         matched = False
         for hid, poem in poems.items():
             if hid in name:
-                text = clean_text(poem["content"])
+                text = build_full_text(poem)
                 if len(text) < 10:
                     continue
                 sample = {

@@ -6,6 +6,9 @@ models/
 output/
 data/audio/
 data/*.jsonl
+data/*.log
+data/wandb/
+wandb/
 *.wav
 *.bin
 *.safetensors
