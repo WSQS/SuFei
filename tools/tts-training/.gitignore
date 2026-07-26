@@ -15,3 +15,6 @@ wandb/
 *.onnx
 *.pyc
 __pycache__/
+
+models/paddlespeech_onnx/
+venv_paddle/
