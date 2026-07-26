@@ -77,18 +77,48 @@ class VariancePredictor(nn.Module):
 
 class LengthRegulator(nn.Module):
     def forward(self, x, durations):
-        batch_size = x.size(0)
-        outputs = []
-        for b in range(batch_size):
-            expanded = []
-            for i, d in enumerate(durations[b]):
-                d = max(int(d.item()), 0)
-                expanded.append(x[b, i:i+1].repeat(d, 1))
-            if expanded:
-                outputs.append(torch.cat(expanded, dim=0))
-            else:
-                outputs.append(x[b, :1])
-        return torch.stack(outputs)
+        """Expand encoder hidden states by durations (vectorized).
+
+        x: [B, L, D]
+        durations: [B, L] int
+
+        Returns: [B, T_max, D] padded
+        """
+        B, L, D = x.shape
+        device = x.device
+
+        # Clamp durations to >= 0
+        durations = durations.clamp(min=0)
+        total_durs = durations.sum(dim=1)
+        T_max = int(total_durs.max().item())
+        if T_max == 0:
+            T_max = 1
+
+        # Cumulative durations give frame boundaries
+        cumdurs = torch.cumsum(durations, dim=1)  # [B, L]
+        # For each output frame t in [0, T_max), find which phoneme it belongs to
+        # frame_indices: [T_max]
+        frame_indices = torch.arange(T_max, device=device).unsqueeze(0)  # [1, T_max]
+        # For each (b, t), find the smallest i such that cumdurs[b, i] > t
+        # That's the phoneme index for frame t
+        # mask[b, i, t] = True if frame t belongs to phoneme i
+        # cumdurs[b, i] > frame_indices[t] means frame t is before the end of phoneme i
+        # We want the first i where this is true
+        phoneme_per_frame = (
+            (cumdurs.unsqueeze(2) > frame_indices.unsqueeze(1))  # [B, L, T_max]
+            .float()
+            .argmax(dim=1)  # [B, T_max] — first True along L
+        )
+
+        # Clamp to valid range [0, L-1]
+        phoneme_per_frame = phoneme_per_frame.clamp(max=L - 1)
+
+        # Gather: output[b, t] = x[b, phoneme_per_frame[b, t]]
+        output = torch.gather(
+            x, 1, phoneme_per_frame.unsqueeze(-1).expand(-1, -1, D)
+        )  # [B, T_max, D]
+
+        return output
 
 
 class FastSpeech2(nn.Module):
@@ -138,25 +168,27 @@ class FastSpeech2(nn.Module):
         # Mel output
         self.mel_linear = nn.Linear(d_model, n_mels)
 
-    def forward(self, phoneme_ids, durations=None, pitches=None, energies=None):
+    def forward(self, phoneme_ids, durations=None, pitches=None, energies=None,
+                phone_mask=None):
         """
         Args:
             phoneme_ids: [B, L]
             durations: [B, L] in mel frames (ground truth for teacher-forcing)
             pitches: [B, T_max] ground truth F0 (teacher-forcing)
             energies: [B, T_max] ground truth energy (teacher-forcing)
+            phone_mask: [B, L] True=padding
 
         Returns:
             mel_output: [B, T, n_mels]
-            pred_durations: [B, L]
-            pred_pitches: [B, T]
-            pred_energies: [B, T]
+            log_pred_durations: [B, L]
+            pred_pitches_enc: [B, L]
+            pred_energies_enc: [B, L]
         """
         x = self.embedding(phoneme_ids) * math.sqrt(self.d_model)
         x = self.pos_enc(x)
 
         for layer in self.encoder_layers:
-            x = layer(x)
+            x = layer(x, mask=phone_mask)
 
         # Predict variance
         log_pred_durations = self.duration_predictor(x)
@@ -166,7 +198,7 @@ class FastSpeech2(nn.Module):
 
         # Length regulate
         if durations is None:
-            durations = log_pred_durations.detach().exp().round().int()
+            durations = log_pred_durations.detach().exp().round().clamp(min=0).long()
 
         mel_input = self.length_regulator(x, durations)
 
@@ -179,17 +211,20 @@ class FastSpeech2(nn.Module):
         ).squeeze(-1)
 
         # Use predicted or ground truth pitch/energy
+        T_out = mel_input.size(1)
         if pitches is not None:
-            pitch_embed = self.pitch_embed(pitches.unsqueeze(-1))
+            T_p = min(pitches.size(1), T_out)
+            pitch_embed = self.pitch_embed(pitches[:, :T_out].unsqueeze(-1))
         else:
             pitch_embed = self.pitch_embed(expanded_pitches_enc.unsqueeze(-1))
 
         if energies is not None:
-            energy_embed = self.energy_embed(energies.unsqueeze(-1))
+            energy_embed = self.energy_embed(energies[:, :T_out].unsqueeze(-1))
         else:
             energy_embed = self.energy_embed(expanded_energies_enc.unsqueeze(-1))
 
-        mel_input = mel_input + pitch_embed + energy_embed
+        # Truncate or pad mel_input to match pitch/energy embed
+        mel_input = mel_input[:, :T_out] + pitch_embed[:, :T_out] + energy_embed[:, :T_out]
         mel_input = self.pos_enc(mel_input)
 
         # Decode
@@ -198,4 +233,4 @@ class FastSpeech2(nn.Module):
             dec = layer(dec)
 
         mel_output = self.mel_linear(dec)
-        return mel_output, log_pred_durations, expanded_pitches_enc, expanded_energies_enc
+        return mel_output, log_pred_durations, pred_pitches_enc, pred_energies_enc

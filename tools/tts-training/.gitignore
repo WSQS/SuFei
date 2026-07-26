@@ -31,3 +31,6 @@ tools/tts-training/data/mfa_validated/
 tools/tts-training/data/nar_features/
 *.npz
 data/duration_labels.json
+checkpoints/
+logs/
+data/norm_stats.json
