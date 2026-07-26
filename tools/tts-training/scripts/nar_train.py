@@ -275,6 +275,17 @@ def train(args):
         drop_last=False,
     )
 
+    # Compute mean log duration for bias init
+    if not args.resume:
+        all_dur = []
+        for i in range(len(dataset)):
+            all_dur.extend(dataset[i]["durations"].tolist())
+        mean_dur = sum(all_dur) / len(all_dur)
+        mean_log_dur = math.log(max(mean_dur, 1.0))
+        print(f"Mean duration: {mean_dur:.1f} frames, log={mean_log_dur:.3f}")
+    else:
+        mean_log_dur = 2.7  # default, overridden by checkpoint
+
     # Model
     model = FastSpeech2(
         vocab_size=268,
@@ -285,6 +296,7 @@ def train(args):
         dim_feedforward=1024,
         n_mels=80,
         dropout=0.1,
+        mean_log_dur=mean_log_dur,
     ).to(device)
 
     start_step = 0
@@ -293,6 +305,9 @@ def train(args):
         model.load_state_dict(ckpt["model"])
         start_step = ckpt.get("step", 0)
         print(f"Resumed from {args.resume} (step {start_step})")
+        if args.reset_dur_bias:
+            model.duration_predictor.init_bias(mean_log_dur)
+            print(f"  Reset duration predictor bias to {mean_log_dur:.3f}")
 
     n_params = sum(p.numel() for p in model.parameters())
     print(f"Model params: {n_params:,} ({n_params / 1e6:.1f}M)")
@@ -515,6 +530,7 @@ if __name__ == "__main__":
     parser.add_argument("--w_pitch", type=float, default=1.0)
     parser.add_argument("--w_energy", type=float, default=1.0)
     parser.add_argument("--resume", default=None, help="Resume from checkpoint path")
+    parser.add_argument("--reset_dur_bias", action="store_true", help="Re-init duration predictor bias on resume")
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     args = parser.parse_args()
     train(args)
