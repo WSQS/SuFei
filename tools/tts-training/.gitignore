@@ -28,3 +28,6 @@ venv_paddle/
 tools/tts-training/data/mfa_corpus/
 tools/tts-training/data/mfa_corpus_plain/
 tools/tts-training/data/mfa_validated/
+tools/tts-training/data/nar_features/
+*.npz
+data/duration_labels.json
