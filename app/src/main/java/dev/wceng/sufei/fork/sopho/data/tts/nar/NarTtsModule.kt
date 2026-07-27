@@ -13,8 +13,13 @@ import javax.inject.Singleton
 /**
  * Hilt module providing the NAR TTS engine.
  *
- * Model files are expected in: /sdcard/SuFei/models/nar/
- * (or app-internal filesDir/models/nar/ for production)
+ * Model files expected in: /sdcard/SuFei/models/nar/
+ * For production: consider split APK or download-on-first-launch.
+ *
+ * Required files:
+ *   - fastspeech2_csmsc.onnx (142MB)
+ *   - hifigan_csmsc.onnx (50MB)
+ *   - phone_id_map.txt (3KB)
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -25,7 +30,14 @@ object NarTtsModule {
     fun provideNarOnnxEngine(
         @ApplicationContext context: Context,
     ): NarOnnxEngine {
-        val modelDir = File(context.filesDir, "models/nar")
+        // Try external storage first, fall back to app-internal
+        val extDir = java.io.File(android.os.Environment.getExternalStorageDirectory(), "SuFei/models/nar")
+        val intDir = java.io.File(context.filesDir, "models/nar")
+        val modelDir = when {
+            extDir.resolve("fastspeech2_csmsc.onnx").isFile -> extDir
+            intDir.resolve("fastspeech2_csmsc.onnx").isFile -> intDir
+            else -> intDir // will fail on first run, user needs to copy models
+        }
         return NarOnnxEngine(modelDir, cpuThreads = 4)
     }
 }
