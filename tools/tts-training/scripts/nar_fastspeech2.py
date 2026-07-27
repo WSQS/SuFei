@@ -63,14 +63,13 @@ class VariancePredictor(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def init_bias(self, value):
-        """Initialize final linear bias to target value, zero the weights.
+        """Initialize final linear bias to target value, tiny weights.
         
-        This ensures the predictor starts by outputting constant durations
-        (mean duration), and the conv layers can learn position-specific
-        adjustments from this baseline.
+        Bias ≈ log(mean_dur) gives correct baseline. Weight ≈ 1e-4
+        allows gradient flow while keeping initial predictions near bias.
         """
         torch.nn.init.constant_(self.linear.bias, value)
-        torch.nn.init.zeros_(self.linear.weight)
+        torch.nn.init.normal_(self.linear.weight, mean=0.0, std=1e-4)
 
     def forward(self, x):
         x = x.transpose(1, 2)

@@ -1,0 +1,13 @@
+{"time":"2026-07-27T12:45:41.2710307+08:00","level":"INFO","msg":"wandb-core"}
+{"time":"2026-07-27T12:45:41.2710307+08:00","level":"INFO","msg":"stream: starting","core version":"0.28.1"}
+{"time":"2026-07-27T12:45:41.4800314+08:00","level":"INFO","msg":"stream: created new stream","id":"coiz50mw"}
+{"time":"2026-07-27T12:45:41.4805646+08:00","level":"INFO","msg":"handler: started"}
+{"time":"2026-07-27T12:45:41.4900234+08:00","level":"INFO","msg":"writer: started","stream_id":"coiz50mw"}
+{"time":"2026-07-27T12:45:41.4906164+08:00","level":"INFO","msg":"sender: started"}
+{"time":"2026-07-27T12:45:41.4900234+08:00","level":"INFO","msg":"stream: started"}
+{"time":"2026-07-27T12:45:46.466827+08:00","level":"INFO","msg":"filestream: sending request","total_files":1,"console_offset":0,"console_lines":2}
+{"time":"2026-07-27T12:45:47.4036588+08:00","level":"INFO","msg":"filestream: request sent","status":"200 OK"}
+{"time":"2026-07-27T12:46:01.4669622+08:00","level":"INFO","msg":"filestream: sending request","total_files":4,"history_offset":0,"history_lines":1,"events_offset":0,"events_lines":2,"console_offset":1,"console_lines":4,"uploaded_len":2}
+{"time":"2026-07-27T12:46:02.1799594+08:00","level":"INFO","msg":"filestream: request sent","status":"200 OK"}
+{"time":"2026-07-27T12:46:16.4680699+08:00","level":"INFO","msg":"filestream: sending request","total_files":1,"events_offset":2,"events_lines":2}
+{"time":"2026-07-27T12:46:16.9459112+08:00","level":"INFO","msg":"filestream: request sent","status":"200 OK"}

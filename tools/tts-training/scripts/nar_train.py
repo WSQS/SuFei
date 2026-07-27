@@ -20,6 +20,8 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 
+import wandb
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
@@ -337,6 +339,28 @@ def train(args):
     print(f"\nLoss weights: mel={W_MEL}, dur={W_DUR}, pitch={W_PITCH}, energy={W_ENERGY}")
     print(f"Steps: {args.steps}, Batch size: {args.batch_size}, LR: {args.lr}")
     print(f"Warmup: {args.warmup_steps} steps")
+
+    # Wandb
+    wandb.init(
+        project=args.wandb_project,
+        name=args.wandb_name or f"fs2_{int(time.time())}",
+        config={
+            "steps": args.steps,
+            "batch_size": args.batch_size,
+            "lr": args.lr,
+            "warmup_steps": args.warmup_steps,
+            "w_mel": W_MEL,
+            "w_dur": W_DUR,
+            "w_pitch": W_PITCH,
+            "w_energy": W_ENERGY,
+            "d_model": 256,
+            "n_params": n_params,
+            "n_samples": len(dataset),
+            "mean_log_dur": mean_log_dur,
+            "resumed": args.resume is not None,
+        },
+    )
+
     print(f"\n{'='*70}")
     print(f"Training started")
     print(f"{'='*70}")
@@ -476,6 +500,17 @@ def train(args):
                 log_file.write(msg + "\n")
                 log_file.flush()
 
+                wandb.log({
+                    "loss/total": total_loss.item(),
+                    "loss/mel": mel_loss.item(),
+                    "loss/dur": dur_loss.item(),
+                    "loss/pitch": pitch_loss.item(),
+                    "loss/energy": energy_loss.item(),
+                    "lr": lr,
+                    "step": step,
+                    "epoch": epoch,
+                })
+
             if step % args.save_interval == 0:
                 ckpt_path = CHECKPOINT_DIR / f"fs2_step{step}.pt"
                 torch.save({
@@ -515,6 +550,7 @@ def train(args):
     elapsed = time.time() - t_start
     print(f"Total time: {elapsed:.0f}s ({elapsed / 60:.1f} min)")
     log_file.close()
+    wandb.finish()
 
 
 if __name__ == "__main__":
@@ -533,6 +569,8 @@ if __name__ == "__main__":
     parser.add_argument("--w_energy", type=float, default=1.0)
     parser.add_argument("--resume", default=None, help="Resume from checkpoint path")
     parser.add_argument("--reset_dur_bias", action="store_true", help="Re-init duration predictor bias on resume")
+    parser.add_argument("--wandb_project", default="sufei-tts", help="WandB project name")
+    parser.add_argument("--wandb_name", default=None, help="WandB run name")
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     args = parser.parse_args()
     train(args)

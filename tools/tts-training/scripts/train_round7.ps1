@@ -11,4 +11,4 @@ $env:JAVA_HOME = "C:\Users\wsqsy\.jdks\ms-17.0.17"
     --w_pitch 2.0 `
     --w_energy 2.0 `
     --wandb_project "sufei-tts" `
-    --wandb_name "round6-pred-pitch-energy"
+    --wandb_name "round7-fix-grad-flow"
