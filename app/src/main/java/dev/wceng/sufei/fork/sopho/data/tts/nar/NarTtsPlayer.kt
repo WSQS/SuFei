@@ -84,13 +84,19 @@ class NarTtsPlayer @Inject constructor(
         )
 
         audioTrack?.let { track ->
+            // Set notification marker at the end for playback completion callback
+            track.setNotificationMarkerPosition(samples.size)
+            track.setPlaybackPositionUpdateListener(object : AudioTrack.OnPlaybackPositionUpdateListener {
+                override fun onMarkerReached(t: AudioTrack?) {
+                    t?.stop()
+                    t?.release()
+                    audioTrack = null
+                    _isPlaying.value = false
+                }
+                override fun onPeriodicNotification(t: AudioTrack?) {}
+            })
             track.write(samples, 0, samples.size, AudioTrack.WRITE_BLOCKING)
             track.play()
-            // Wait for playback to finish
-            Thread.sleep((samples.size.toLong() * 1000 / sampleRate) + 100)
         }
-
-        audioTrack?.release()
-        audioTrack = null
     }
 }
