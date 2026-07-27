@@ -24,17 +24,12 @@ class NarOnnxEngineTest {
     @Before
     fun setup() {
         context = ApplicationProvider.getApplicationContext()
-        // Try external storage
-        val extDir = File(android.os.Environment.getExternalStorageDirectory(), "SuFei/models/nar")
-        if (extDir.resolve("fastspeech2_csmsc.onnx").isFile) {
-            modelDir = extDir
-        } else {
-            // Try app-internal
-            val intDir = File(context.filesDir, "models/nar")
-            if (intDir.resolve("fastspeech2_csmsc.onnx").isFile) {
-                modelDir = intDir
-            }
-        }
+        val candidates = listOf(
+            File(context.getExternalFilesDir(null), "models/nar"),
+            File(android.os.Environment.getExternalStorageDirectory(), "SuFei/models/nar"),
+            File(context.filesDir, "models/nar"),
+        )
+        modelDir = candidates.firstOrNull { it.resolve("fastspeech2_csmsc.onnx").isFile }
     }
 
     @Test
@@ -64,10 +59,10 @@ class NarOnnxEngineTest {
         val engine = NarOnnxEngine(dir, cpuThreads = 4)
         engine.use {
             val audio = it.synthesize("春眠不觉晓")
+            println("Audio samples: ${audio.size}")
             assertTrue("Audio should not be empty", audio.isNotEmpty())
-            assertTrue("Audio should have reasonable length (>1000 samples)",
+            assertTrue("Audio should have reasonable length (>1000 samples), got ${audio.size}",
                 audio.size > 1000)
-            println("Audio: ${audio.size} samples, ${"%.1f".format(audio.size / 24000.0)}s")
         }
     }
 

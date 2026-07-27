@@ -30,14 +30,14 @@ object NarTtsModule {
     fun provideNarOnnxEngine(
         @ApplicationContext context: Context,
     ): NarOnnxEngine {
-        // Try external storage first, fall back to app-internal
-        val extDir = java.io.File(android.os.Environment.getExternalStorageDirectory(), "SuFei/models/nar")
-        val intDir = java.io.File(context.filesDir, "models/nar")
-        val modelDir = when {
-            extDir.resolve("fastspeech2_csmsc.onnx").isFile -> extDir
-            intDir.resolve("fastspeech2_csmsc.onnx").isFile -> intDir
-            else -> intDir // will fail on first run, user needs to copy models
-        }
+        val candidates = listOf(
+            java.io.File(context.getExternalFilesDir(null), "models/nar"),
+            java.io.File(android.os.Environment.getExternalStorageDirectory(), "SuFei/models/nar"),
+            java.io.File(context.filesDir, "models/nar"),
+        )
+        val modelDir = candidates.firstOrNull {
+            it.resolve("fastspeech2_csmsc.onnx").isFile
+        } ?: context.filesDir.resolve("models/nar")
         return NarOnnxEngine(modelDir, cpuThreads = 4)
     }
 }

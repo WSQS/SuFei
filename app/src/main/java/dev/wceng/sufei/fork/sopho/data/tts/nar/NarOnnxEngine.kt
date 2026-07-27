@@ -7,7 +7,6 @@ import ai.onnxruntime.OrtSession
 import java.io.Closeable
 import java.io.File
 import java.nio.FloatBuffer
-import java.nio.IntBuffer
 
 /**
  * FastSpeech 2 + HiFi-GAN NAR TTS engine.
@@ -43,9 +42,13 @@ class NarOnnxEngine(
      */
     fun synthesize(text: String): FloatArray {
         val phoneIds = g2p(text)
+        android.util.Log.d("NarOnnxEngine", "G2P: ${text.take(20)} → ${phoneIds.size} ids")
         require(phoneIds.isNotEmpty()) { "No valid phonemes from text: $text" }
         val mel = runFastSpeech2(phoneIds)
-        return runHifiGan(mel)
+        android.util.Log.d("NarOnnxEngine", "FS2: mel=${mel.size}x${if (mel.isNotEmpty()) mel[0].size else 0}")
+        val audio = runHifiGan(mel)
+        android.util.Log.d("NarOnnxEngine", "HiFiGAN: ${audio.size} samples")
+        return audio
     }
 
     private fun g2p(text: String): IntArray {
@@ -54,10 +57,11 @@ class NarOnnxEngine(
     }
 
     private fun runFastSpeech2(phoneIds: IntArray): Array<FloatArray> {
+        val longIds = phoneIds.map { it.toLong() }.toLongArray()
         val input = OnnxTensor.createTensor(
             env,
-            IntBuffer.wrap(phoneIds),
-            longArrayOf(phoneIds.size.toLong()),
+            java.nio.LongBuffer.wrap(longIds),
+            longArrayOf(longIds.size.toLong()),
         )
         input.use {
             val outputs = fs2Session.run(mapOf("text" to it))
@@ -87,10 +91,11 @@ class NarOnnxEngine(
         input.use {
             val outputs = hifiganSession.run(mapOf("logmel" to it))
             outputs.use { result ->
-                @Suppress("UNCHECKED_CAST")
-                val batch = result.requiredValue(0).value as Array<*>
-                val channel = batch[0] as FloatArray
-                return channel
+                val outputValue = result.requiredValue(0)
+                android.util.Log.d("NarOnnxEngine", "HiFiGAN output type: ${outputValue.value?.javaClass?.simpleName}")
+                // Output shape is [None, 1] — flatten everything
+                val flatOutput = flattenToFloat(outputValue.value)
+                return flatOutput
             }
         }
     }
@@ -119,3 +124,19 @@ class NarOnnxEngine(
 
 private fun OrtSession.Result.requiredValue(index: Int): OnnxValue =
     get(index) ?: throw IllegalStateException("Missing ONNX output at index $index")
+
+private fun flattenToFloat(value: Any?): FloatArray {
+    when (value) {
+        is FloatArray -> return value
+        is Array<*> -> {
+            val result = mutableListOf<Float>()
+            for (item in value) {
+                val nested = flattenToFloat(item)
+                result.addAll(nested.toList())
+            }
+            return result.toFloatArray()
+        }
+        is Number -> return floatArrayOf(value.toFloat())
+        else -> throw IllegalStateException("Cannot convert ${value?.javaClass} to FloatArray")
+    }
+}
