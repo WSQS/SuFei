@@ -153,8 +153,8 @@ dependencies {
     testImplementation("com.microsoft.onnxruntime:onnxruntime:1.27.0")
     testImplementation("org.json:json:20240303")
 
-    // NAR TTS — pinyin lookup for G2P
-    implementation("com.github.promeg:tinypinyin:2.0.3")
+    // NAR TTS — pinyin lookup for G2P (fork-sopho)
+    implementation("com.github.promeG:TinyPinyin:2.0.3")
 }
 
 protobuf {
