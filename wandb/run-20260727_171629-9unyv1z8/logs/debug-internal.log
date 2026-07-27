@@ -1,0 +1,17 @@
+{"time":"2026-07-27T17:16:29.5995161+08:00","level":"INFO","msg":"wandb-core"}
+{"time":"2026-07-27T17:16:29.6000274+08:00","level":"INFO","msg":"stream: starting","core version":"0.28.1"}
+{"time":"2026-07-27T17:16:30.5271604+08:00","level":"INFO","msg":"stream: created new stream","id":"9unyv1z8"}
+{"time":"2026-07-27T17:16:30.5271604+08:00","level":"INFO","msg":"handler: started"}
+{"time":"2026-07-27T17:16:30.5373038+08:00","level":"INFO","msg":"stream: started"}
+{"time":"2026-07-27T17:16:30.5373038+08:00","level":"INFO","msg":"sender: started"}
+{"time":"2026-07-27T17:16:30.5373038+08:00","level":"INFO","msg":"writer: started","stream_id":"9unyv1z8"}
+{"time":"2026-07-27T17:16:35.0306921+08:00","level":"INFO","msg":"filestream: sending request","total_files":1,"console_offset":0,"console_lines":2}
+{"time":"2026-07-27T17:16:38.4752619+08:00","level":"INFO","msg":"filestream: request sent","status":"200 OK"}
+{"time":"2026-07-27T17:16:50.0311375+08:00","level":"INFO","msg":"filestream: sending request","total_files":2,"events_offset":0,"events_lines":2,"console_offset":1,"console_lines":3,"uploaded_len":2}
+{"time":"2026-07-27T17:16:50.6718203+08:00","level":"INFO","msg":"filestream: request sent","status":"200 OK"}
+{"time":"2026-07-27T17:17:05.0310773+08:00","level":"INFO","msg":"filestream: sending request","total_files":4,"history_offset":0,"history_lines":1,"events_offset":2,"events_lines":2,"console_offset":4,"console_lines":1}
+{"time":"2026-07-27T17:17:05.5993759+08:00","level":"INFO","msg":"filestream: request sent","status":"200 OK"}
+{"time":"2026-07-27T17:17:20.0313677+08:00","level":"INFO","msg":"filestream: sending request","total_files":1,"events_offset":4,"events_lines":2}
+{"time":"2026-07-27T17:17:20.7080044+08:00","level":"INFO","msg":"filestream: request sent","status":"200 OK"}
+{"time":"2026-07-27T17:17:35.0311464+08:00","level":"INFO","msg":"filestream: sending request","total_files":1,"events_offset":6,"events_lines":2}
+{"time":"2026-07-27T17:17:35.7082996+08:00","level":"INFO","msg":"filestream: request sent","status":"200 OK"}

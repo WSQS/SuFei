@@ -105,3 +105,4 @@ Training started
   step  9600/10000 | epoch 370 | loss=6.2692 mel=0.2996 dur=0.6795 pitch=0.4842 energy=0.8018 | lr=0.000050 | 0.6 step/s
   step  9700/10000 | epoch 374 | loss=6.4161 mel=0.3378 dur=0.7547 pitch=0.4000 energy=0.7524 | lr=0.000050 | 0.6 step/s
   step  9800/10000 | epoch 377 | loss=6.7922 mel=0.3122 dur=0.7742 pitch=0.4909 energy=0.8135 | lr=0.000050 | 0.6 step/s
+  step  9900/10000 | epoch 381 | loss=6.1917 mel=0.3280 dur=0.6998 pitch=0.4182 energy=0.7640 | lr=0.000050 | 0.6 step/s

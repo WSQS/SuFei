@@ -142,6 +142,7 @@ class FastSpeech2(nn.Module):
         n_mels=80,
         max_len=5000,
         dropout=0.1,
+        predictor_dropout=0.1,
         mean_log_dur=2.7,
     ):
         super().__init__()
@@ -158,10 +159,10 @@ class FastSpeech2(nn.Module):
         ])
 
         # Variance predictors
-        self.duration_predictor = VariancePredictor(d_model)
+        self.duration_predictor = VariancePredictor(d_model, dropout=predictor_dropout)
         self.duration_predictor.init_bias(mean_log_dur)
-        self.pitch_predictor = VariancePredictor(d_model)
-        self.energy_predictor = VariancePredictor(d_model)
+        self.pitch_predictor = VariancePredictor(d_model, dropout=predictor_dropout)
+        self.energy_predictor = VariancePredictor(d_model, dropout=predictor_dropout)
 
         # Length regulator
         self.length_regulator = LengthRegulator()
