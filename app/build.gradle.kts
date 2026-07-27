@@ -152,6 +152,9 @@ dependencies {
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.27.0")
     testImplementation("com.microsoft.onnxruntime:onnxruntime:1.27.0")
     testImplementation("org.json:json:20240303")
+
+    // NAR TTS — pinyin lookup for G2P
+    implementation("com.github.promeg:tinypinyin:2.0.3")
 }
 
 protobuf {
