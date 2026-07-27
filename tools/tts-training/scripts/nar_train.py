@@ -398,9 +398,11 @@ def train(args):
                 energy_pred_enc.unsqueeze(-1), durations_gt
             ).squeeze(-1)
 
-            # Use GT pitch/energy for embedding injection (teacher forcing)
-            pitch_embed = model.pitch_embed(f0_norm[:, :T_pred].unsqueeze(-1))
-            energy_embed = model.energy_embed(energy_norm[:, :T_pred].unsqueeze(-1))
+            # Use PREDICTED pitch/energy for decoder input (not GT)
+            # This eliminates train/inference mismatch — decoder learns
+            # to work with predicted variance, not GT variance.
+            pitch_embed = model.pitch_embed(pitch_expanded[:, :T_pred].unsqueeze(-1))
+            energy_embed = model.energy_embed(energy_expanded[:, :T_pred].unsqueeze(-1))
 
             mel_input = mel_input + pitch_embed + energy_embed
             mel_input = model.pos_enc(mel_input)
