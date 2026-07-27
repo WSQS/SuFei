@@ -1,16 +1,12 @@
 package dev.wceng.sufei.fork.sopho.data.tts.nar
 
-import com.github.promeg.pinyinhelper.Pinyin
+import android.content.Context
+import org.json.JSONObject
 
 /**
  * Chinese text → PaddleSpeech-style phoneme conversion (G2P).
  *
- * Converts Chinese characters to pinyin with tone numbers,
- * then splits into initials/finals matching PaddleSpeech's phone vocabulary.
- *
- * Example: "春眠不觉晓" → [ch, un1, m, ian2, b, u4, j, ue2, x, iao3]
- *
- * Depends on TinyPinyin for character→pinyin lookup.
+ * Uses bundled pinyin dictionary (assets/pinyin_dict.json).
  */
 
 private val INITIALS = setOf(
@@ -31,19 +27,23 @@ private val PUNCT_MAP = mapOf(
 
 object ChineseG2p {
 
-    /**
-     * Convert Chinese text to PaddleSpeech phone sequence.
-     *
-     * @return list of phone strings (initials, finals with tone, punctuation, <eos>)
-     */
+    private var pinyinDict: Map<String, String>? = null
+
+    fun init(context: Context) {
+        if (pinyinDict != null) return
+        val json = context.assets.open("pinyin_dict.json").bufferedReader().use { it.readText() }
+        val obj = JSONObject(json)
+        pinyinDict = obj.keys().asSequence().associateWith { obj.getString(it) }
+    }
+
     fun textToPhones(text: String): List<String> {
         val phones = mutableListOf<String>()
 
         for (ch in text) {
             when {
                 isChinese(ch) -> {
-                    val rawPinyin = Pinyin.toPinyin(ch) // e.g. "CHŪN" or "CHUN"
-                    if (rawPinyin.isNotEmpty()) {
+                    val rawPinyin = pinyinDict?.get(ch.toString())
+                    if (!rawPinyin.isNullOrEmpty()) {
                         val py = convertToneMarksToNumbers(rawPinyin.lowercase())
                         processPinyin(py, phones)
                     }

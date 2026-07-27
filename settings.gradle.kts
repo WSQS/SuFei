@@ -19,7 +19,6 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven(url = "https://jitpack.io")  // fork-sopho: tinypinyin for NAR TTS G2P
     }
 }
 
