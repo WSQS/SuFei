@@ -1,0 +1,13 @@
+
+======================================================================
+Training started
+======================================================================
+  step     1/10000 | epoch 1 | loss=13.5025 mel=0.9385 dur=1.8805 pitch=0.6433 energy=0.9376 | lr=0.000002 | 0.5 step/s
+  step   100/10000 | epoch 4 | loss=8.6485 mel=0.8270 dur=0.9907 pitch=0.5750 energy=0.8590 | lr=0.000101 | 0.9 step/s
+  step   200/10000 | epoch 8 | loss=6.8227 mel=0.7674 dur=0.6754 pitch=0.5098 energy=0.8294 | lr=0.000201 | 0.9 step/s
+  step   300/10000 | epoch 12 | loss=5.9820 mel=0.8383 dur=0.5356 pitch=0.3526 energy=0.8803 | lr=0.000301 | 0.9 step/s
+  step   400/10000 | epoch 16 | loss=7.1260 mel=0.8023 dur=0.7604 pitch=0.3927 energy=0.8681 | lr=0.000401 | 0.9 step/s
+  step   500/10000 | epoch 20 | loss=7.1813 mel=0.7715 dur=0.7592 pitch=0.4791 energy=0.8279 | lr=0.000500 | 0.9 step/s
+  step   600/10000 | epoch 24 | loss=7.0890 mel=0.7183 dur=0.7793 pitch=0.4596 energy=0.7777 | lr=0.000495 | 0.9 step/s
+  step   700/10000 | epoch 27 | loss=6.9474 mel=0.7421 dur=0.7223 pitch=0.4567 energy=0.8403 | lr=0.000489 | 0.9 step/s
+  step   800/10000 | epoch 31 | loss=5.9012 mel=0.7243 dur=0.5432 pitch=0.4692 energy=0.7613 | lr=0.000484 | 0.9 step/s

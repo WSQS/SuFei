@@ -1,0 +1,113 @@
+
+======================================================================
+Training started
+======================================================================
+  step     1/10000 | epoch 1 | loss=13.0135 mel=0.9405 dur=1.7785 pitch=0.6700 energy=0.9203 | lr=0.000002 | 0.6 step/s
+  step   100/10000 | epoch 4 | loss=8.5238 mel=0.8432 dur=1.0064 pitch=0.4532 energy=0.8711 | lr=0.000101 | 0.8 step/s
+  step   200/10000 | epoch 8 | loss=7.1338 mel=0.8101 dur=0.7308 pitch=0.4813 energy=0.8535 | lr=0.000201 | 0.8 step/s
+  step   300/10000 | epoch 12 | loss=6.3185 mel=0.8340 dur=0.5951 pitch=0.4064 energy=0.8481 | lr=0.000301 | 0.7 step/s
+  step   400/10000 | epoch 16 | loss=6.7668 mel=0.7507 dur=0.7248 pitch=0.3994 energy=0.7967 | lr=0.000401 | 0.7 step/s
+  step   500/10000 | epoch 20 | loss=5.1654 mel=0.8139 dur=0.3672 pitch=0.4041 energy=0.8535 | lr=0.000500 | 0.7 step/s
+  step   600/10000 | epoch 24 | loss=7.3024 mel=0.7686 dur=0.7960 pitch=0.4215 energy=0.8554 | lr=0.000495 | 0.7 step/s
+  step   700/10000 | epoch 27 | loss=7.9801 mel=0.7256 dur=0.9486 pitch=0.4581 energy=0.7978 | lr=0.000489 | 0.7 step/s
+  step   800/10000 | epoch 31 | loss=6.5160 mel=0.7510 dur=0.6430 pitch=0.4568 energy=0.8183 | lr=0.000484 | 0.7 step/s
+  step   900/10000 | epoch 35 | loss=5.5320 mel=0.7815 dur=0.4592 pitch=0.4190 energy=0.8082 | lr=0.000479 | 0.7 step/s
+  step  1000/10000 | epoch 39 | loss=5.5650 mel=0.7384 dur=0.4720 pitch=0.4131 energy=0.8202 | lr=0.000474 | 0.8 step/s
+  step  1100/10000 | epoch 43 | loss=6.4839 mel=0.7205 dur=0.6196 pitch=0.5189 energy=0.8139 | lr=0.000468 | 0.8 step/s
+  step  1200/10000 | epoch 47 | loss=4.9827 mel=0.6741 dur=0.3682 pitch=0.4651 energy=0.7688 | lr=0.000463 | 0.8 step/s
+  step  1300/10000 | epoch 50 | loss=4.1159 mel=0.7156 dur=0.2213 pitch=0.3542 energy=0.7928 | lr=0.000458 | 0.8 step/s
+  step  1400/10000 | epoch 54 | loss=5.8426 mel=0.7097 dur=0.5021 pitch=0.5245 energy=0.7866 | lr=0.000453 | 0.8 step/s
+  step  1500/10000 | epoch 58 | loss=5.2795 mel=0.6973 dur=0.4019 pitch=0.4856 energy=0.8006 | lr=0.000447 | 0.8 step/s
+  step  1600/10000 | epoch 62 | loss=4.7549 mel=0.6703 dur=0.3267 pitch=0.4656 energy=0.7599 | lr=0.000442 | 0.8 step/s
+  step  1700/10000 | epoch 66 | loss=4.6311 mel=0.6518 dur=0.3049 pitch=0.4633 energy=0.7641 | lr=0.000437 | 0.8 step/s
+  step  1800/10000 | epoch 70 | loss=4.7224 mel=0.5970 dur=0.3209 pitch=0.4673 energy=0.7932 | lr=0.000432 | 0.8 step/s
+  step  1900/10000 | epoch 74 | loss=4.8135 mel=0.6097 dur=0.3476 pitch=0.4749 energy=0.7580 | lr=0.000426 | 0.8 step/s
+  step  2000/10000 | epoch 77 | loss=6.8612 mel=0.6094 dur=0.7587 pitch=0.4771 energy=0.7520 | lr=0.000421 | 0.8 step/s
+  >> Saved checkpoint: fs2_step2000.pt
+  step  2100/10000 | epoch 81 | loss=4.2739 mel=0.6457 dur=0.2493 pitch=0.3944 energy=0.7963 | lr=0.000416 | 0.8 step/s
+  step  2200/10000 | epoch 85 | loss=4.1762 mel=0.6049 dur=0.2486 pitch=0.3898 energy=0.7743 | lr=0.000411 | 0.8 step/s
+  step  2300/10000 | epoch 89 | loss=4.4978 mel=0.5818 dur=0.3047 pitch=0.4307 energy=0.7656 | lr=0.000405 | 0.8 step/s
+  step  2400/10000 | epoch 93 | loss=4.2987 mel=0.5444 dur=0.2810 pitch=0.4494 energy=0.7252 | lr=0.000400 | 0.8 step/s
+  step  2500/10000 | epoch 97 | loss=4.3367 mel=0.5503 dur=0.3042 pitch=0.4406 energy=0.6921 | lr=0.000395 | 0.8 step/s
+  step  2600/10000 | epoch 100 | loss=5.8404 mel=0.5670 dur=0.6388 pitch=0.2922 energy=0.7474 | lr=0.000389 | 0.8 step/s
+  step  2700/10000 | epoch 104 | loss=4.9906 mel=0.5097 dur=0.4574 pitch=0.3922 energy=0.7046 | lr=0.000384 | 0.8 step/s
+  step  2800/10000 | epoch 108 | loss=3.9822 mel=0.4933 dur=0.2715 pitch=0.3456 energy=0.7201 | lr=0.000379 | 0.8 step/s
+  step  2900/10000 | epoch 112 | loss=4.1906 mel=0.5084 dur=0.2603 pitch=0.4932 energy=0.6972 | lr=0.000374 | 0.8 step/s
+  step  3000/10000 | epoch 116 | loss=4.0487 mel=0.4743 dur=0.2615 pitch=0.4571 energy=0.6764 | lr=0.000368 | 0.8 step/s
+  step  3100/10000 | epoch 120 | loss=3.7838 mel=0.4510 dur=0.1947 pitch=0.4951 energy=0.6845 | lr=0.000363 | 0.8 step/s
+  step  3200/10000 | epoch 124 | loss=3.9669 mel=0.4548 dur=0.2400 pitch=0.4430 energy=0.7131 | lr=0.000358 | 0.8 step/s
+  step  3300/10000 | epoch 127 | loss=3.7693 mel=0.4866 dur=0.1784 pitch=0.4691 energy=0.7262 | lr=0.000353 | 0.8 step/s
+  step  3400/10000 | epoch 131 | loss=3.8524 mel=0.4710 dur=0.2286 pitch=0.4604 energy=0.6588 | lr=0.000347 | 0.8 step/s
+  step  3500/10000 | epoch 135 | loss=3.7871 mel=0.4603 dur=0.2254 pitch=0.3868 energy=0.7130 | lr=0.000342 | 0.8 step/s
+  step  3600/10000 | epoch 139 | loss=3.7266 mel=0.4529 dur=0.1853 pitch=0.4364 energy=0.7372 | lr=0.000337 | 0.8 step/s
+  step  3700/10000 | epoch 143 | loss=3.9504 mel=0.4241 dur=0.1702 pitch=0.6087 energy=0.7290 | lr=0.000332 | 0.8 step/s
+  step  3800/10000 | epoch 147 | loss=3.6802 mel=0.4243 dur=0.1572 pitch=0.4621 energy=0.7730 | lr=0.000326 | 0.8 step/s
+  step  3900/10000 | epoch 150 | loss=3.9137 mel=0.4224 dur=0.2346 pitch=0.5227 energy=0.6364 | lr=0.000321 | 0.8 step/s
+  step  4000/10000 | epoch 154 | loss=3.9237 mel=0.4126 dur=0.1696 pitch=0.5393 energy=0.7922 | lr=0.000316 | 0.8 step/s
+  >> Saved checkpoint: fs2_step4000.pt
+  step  4100/10000 | epoch 158 | loss=3.6485 mel=0.4016 dur=0.2125 pitch=0.3999 energy=0.6922 | lr=0.000311 | 0.8 step/s
+  step  4200/10000 | epoch 162 | loss=3.6027 mel=0.3850 dur=0.2296 pitch=0.4119 energy=0.6228 | lr=0.000305 | 0.8 step/s
+  step  4300/10000 | epoch 166 | loss=3.5483 mel=0.3990 dur=0.1630 pitch=0.4608 energy=0.7063 | lr=0.000300 | 0.8 step/s
+  step  4400/10000 | epoch 170 | loss=3.6877 mel=0.3977 dur=0.2205 pitch=0.4128 energy=0.6810 | lr=0.000295 | 0.8 step/s
+  step  4500/10000 | epoch 174 | loss=3.4078 mel=0.3711 dur=0.1687 pitch=0.3942 energy=0.7025 | lr=0.000289 | 0.8 step/s
+  step  4600/10000 | epoch 177 | loss=3.5391 mel=0.4164 dur=0.1652 pitch=0.4109 energy=0.7374 | lr=0.000284 | 0.8 step/s
+  step  4700/10000 | epoch 181 | loss=3.7671 mel=0.3954 dur=0.1945 pitch=0.4955 energy=0.7040 | lr=0.000279 | 0.8 step/s
+  step  4800/10000 | epoch 185 | loss=3.3959 mel=0.3767 dur=0.1911 pitch=0.3298 energy=0.7019 | lr=0.000274 | 0.8 step/s
+  step  4900/10000 | epoch 189 | loss=3.2533 mel=0.3573 dur=0.1282 pitch=0.4671 energy=0.6604 | lr=0.000268 | 0.8 step/s
+  step  5000/10000 | epoch 193 | loss=3.5428 mel=0.3413 dur=0.1629 pitch=0.5005 energy=0.6930 | lr=0.000263 | 0.8 step/s
+  step  5100/10000 | epoch 197 | loss=3.6554 mel=0.3954 dur=0.2036 pitch=0.4108 energy=0.7103 | lr=0.000258 | 0.8 step/s
+  step  5200/10000 | epoch 200 | loss=3.6049 mel=0.3661 dur=0.2643 pitch=0.3173 energy=0.6414 | lr=0.000253 | 0.8 step/s
+  step  5300/10000 | epoch 204 | loss=3.4568 mel=0.3829 dur=0.1999 pitch=0.4153 energy=0.6219 | lr=0.000247 | 0.8 step/s
+  step  5400/10000 | epoch 208 | loss=3.5497 mel=0.3588 dur=0.2403 pitch=0.3940 energy=0.6008 | lr=0.000242 | 0.8 step/s
+  step  5500/10000 | epoch 212 | loss=3.5973 mel=0.3815 dur=0.1824 pitch=0.4376 energy=0.7144 | lr=0.000237 | 0.8 step/s
+  step  5600/10000 | epoch 216 | loss=3.4334 mel=0.3494 dur=0.1716 pitch=0.4969 energy=0.6162 | lr=0.000232 | 0.8 step/s
+  step  5700/10000 | epoch 220 | loss=3.5517 mel=0.3547 dur=0.2244 pitch=0.3399 energy=0.6976 | lr=0.000226 | 0.8 step/s
+  step  5800/10000 | epoch 224 | loss=3.4469 mel=0.3462 dur=0.1638 pitch=0.4597 energy=0.6812 | lr=0.000221 | 0.8 step/s
+  step  5900/10000 | epoch 227 | loss=3.3215 mel=0.3393 dur=0.1864 pitch=0.4025 energy=0.6225 | lr=0.000216 | 0.8 step/s
+  step  6000/10000 | epoch 231 | loss=3.5619 mel=0.3252 dur=0.1907 pitch=0.4455 energy=0.6960 | lr=0.000211 | 0.8 step/s
+  >> Saved checkpoint: fs2_step6000.pt
+  step  6100/10000 | epoch 235 | loss=3.3205 mel=0.3329 dur=0.1991 pitch=0.3859 energy=0.6101 | lr=0.000205 | 0.8 step/s
+  step  6200/10000 | epoch 239 | loss=3.4482 mel=0.3462 dur=0.2013 pitch=0.3951 energy=0.6526 | lr=0.000200 | 0.8 step/s
+  step  6300/10000 | epoch 243 | loss=3.7129 mel=0.3087 dur=0.1817 pitch=0.5457 energy=0.7022 | lr=0.000195 | 0.8 step/s
+  step  6400/10000 | epoch 247 | loss=3.2137 mel=0.3322 dur=0.1481 pitch=0.3927 energy=0.6780 | lr=0.000189 | 0.8 step/s
+  step  6500/10000 | epoch 250 | loss=3.4991 mel=0.3277 dur=0.2452 pitch=0.3536 energy=0.6192 | lr=0.000184 | 0.8 step/s
+  step  6600/10000 | epoch 254 | loss=3.3778 mel=0.3056 dur=0.1664 pitch=0.4659 energy=0.6543 | lr=0.000179 | 0.8 step/s
+  step  6700/10000 | epoch 258 | loss=3.2132 mel=0.3184 dur=0.1807 pitch=0.3460 energy=0.6497 | lr=0.000174 | 0.8 step/s
+  step  6800/10000 | epoch 262 | loss=3.3097 mel=0.3225 dur=0.1683 pitch=0.3850 energy=0.6878 | lr=0.000168 | 0.8 step/s
+  step  6900/10000 | epoch 266 | loss=3.3596 mel=0.3185 dur=0.1427 pitch=0.4678 energy=0.6959 | lr=0.000163 | 0.8 step/s
+  step  7000/10000 | epoch 270 | loss=3.4162 mel=0.3051 dur=0.2270 pitch=0.4259 energy=0.5620 | lr=0.000158 | 0.8 step/s
+  step  7100/10000 | epoch 274 | loss=3.4598 mel=0.3157 dur=0.1700 pitch=0.4838 energy=0.6633 | lr=0.000153 | 0.8 step/s
+  step  7200/10000 | epoch 277 | loss=3.4796 mel=0.3193 dur=0.1747 pitch=0.5053 energy=0.6381 | lr=0.000147 | 0.8 step/s
+  step  7300/10000 | epoch 281 | loss=3.3146 mel=0.3066 dur=0.1522 pitch=0.4304 energy=0.6930 | lr=0.000142 | 0.8 step/s
+  step  7400/10000 | epoch 285 | loss=3.3929 mel=0.3181 dur=0.1702 pitch=0.4314 energy=0.6805 | lr=0.000137 | 0.8 step/s
+  step  7500/10000 | epoch 289 | loss=3.2033 mel=0.3177 dur=0.1865 pitch=0.3556 energy=0.6208 | lr=0.000132 | 0.8 step/s
+  step  7600/10000 | epoch 293 | loss=3.3042 mel=0.2989 dur=0.1447 pitch=0.4572 energy=0.6836 | lr=0.000126 | 0.8 step/s
+  step  7700/10000 | epoch 297 | loss=3.3919 mel=0.2876 dur=0.1969 pitch=0.4266 energy=0.6332 | lr=0.000121 | 0.8 step/s
+  step  7800/10000 | epoch 300 | loss=3.3782 mel=0.3123 dur=0.1648 pitch=0.4597 energy=0.6612 | lr=0.000116 | 0.7 step/s
+  step  7900/10000 | epoch 304 | loss=3.3571 mel=0.3221 dur=0.1878 pitch=0.3833 energy=0.6645 | lr=0.000111 | 0.7 step/s
+  step  8000/10000 | epoch 308 | loss=3.2486 mel=0.3184 dur=0.2211 pitch=0.2994 energy=0.6129 | lr=0.000105 | 0.7 step/s
+  >> Saved checkpoint: fs2_step8000.pt
+  step  8100/10000 | epoch 312 | loss=3.2081 mel=0.2994 dur=0.1626 pitch=0.3788 energy=0.6692 | lr=0.000100 | 0.7 step/s
+  step  8200/10000 | epoch 316 | loss=3.4822 mel=0.3005 dur=0.1787 pitch=0.4550 energy=0.6891 | lr=0.000095 | 0.7 step/s
+  step  8300/10000 | epoch 320 | loss=3.4933 mel=0.2879 dur=0.1916 pitch=0.4746 energy=0.6491 | lr=0.000089 | 0.7 step/s
+  step  8400/10000 | epoch 324 | loss=3.2189 mel=0.2933 dur=0.1639 pitch=0.3798 energy=0.6734 | lr=0.000084 | 0.7 step/s
+  step  8500/10000 | epoch 327 | loss=3.3250 mel=0.2984 dur=0.1423 pitch=0.4486 energy=0.7088 | lr=0.000079 | 0.7 step/s
+  step  8600/10000 | epoch 331 | loss=3.1868 mel=0.3132 dur=0.1604 pitch=0.3466 energy=0.6893 | lr=0.000074 | 0.7 step/s
+  step  8700/10000 | epoch 335 | loss=3.0843 mel=0.3169 dur=0.1417 pitch=0.3804 energy=0.6490 | lr=0.000068 | 0.7 step/s
+  step  8800/10000 | epoch 339 | loss=3.2894 mel=0.3121 dur=0.1321 pitch=0.4489 energy=0.7094 | lr=0.000063 | 0.7 step/s
+  step  8900/10000 | epoch 343 | loss=3.3105 mel=0.2770 dur=0.1726 pitch=0.4499 energy=0.6354 | lr=0.000058 | 0.7 step/s
+  step  9000/10000 | epoch 347 | loss=3.0974 mel=0.2831 dur=0.1546 pitch=0.3301 energy=0.6906 | lr=0.000053 | 0.7 step/s
+  step  9100/10000 | epoch 350 | loss=3.5782 mel=0.2860 dur=0.2990 pitch=0.3634 energy=0.5351 | lr=0.000050 | 0.7 step/s
+  step  9200/10000 | epoch 354 | loss=3.2047 mel=0.2855 dur=0.1521 pitch=0.3793 energy=0.7002 | lr=0.000050 | 0.7 step/s
+  step  9300/10000 | epoch 358 | loss=3.0828 mel=0.3230 dur=0.1456 pitch=0.3287 energy=0.6871 | lr=0.000050 | 0.7 step/s
+  step  9400/10000 | epoch 362 | loss=3.4473 mel=0.3038 dur=0.1722 pitch=0.4517 energy=0.6896 | lr=0.000050 | 0.7 step/s
+  step  9500/10000 | epoch 366 | loss=3.2640 mel=0.2832 dur=0.1861 pitch=0.4038 energy=0.6213 | lr=0.000050 | 0.7 step/s
+  step  9600/10000 | epoch 370 | loss=3.4586 mel=0.2958 dur=0.2088 pitch=0.4168 energy=0.6426 | lr=0.000050 | 0.7 step/s
+  step  9700/10000 | epoch 374 | loss=3.3268 mel=0.3005 dur=0.1780 pitch=0.4019 energy=0.6662 | lr=0.000050 | 0.7 step/s
+  step  9800/10000 | epoch 377 | loss=3.0299 mel=0.2878 dur=0.1245 pitch=0.3851 energy=0.6747 | lr=0.000050 | 0.7 step/s
+  step  9900/10000 | epoch 381 | loss=3.1591 mel=0.2890 dur=0.1833 pitch=0.3721 energy=0.6047 | lr=0.000050 | 0.7 step/s
+  step 10000/10000 | epoch 385 | loss=3.4271 mel=0.3057 dur=0.2127 pitch=0.3870 energy=0.6421 | lr=0.000050 | 0.7 step/s
+  >> Saved checkpoint: fs2_step10000.pt
+
+Final checkpoint: C:\Users\wsqsy\Documents\android\SuFei\tools\tts-training\checkpoints\fs2_final.pt
+Total time: 14126s (235.4 min)
