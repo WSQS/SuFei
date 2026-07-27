@@ -42,8 +42,9 @@ object ChineseG2p {
         for (ch in text) {
             when {
                 isChinese(ch) -> {
-                    val py = Pinyin.toPinyin(ch).lowercase()
-                    if (py.isNotEmpty()) {
+                    val rawPinyin = Pinyin.toPinyin(ch) // e.g. "CHŪN" or "CHUN"
+                    if (rawPinyin.isNotEmpty()) {
+                        val py = convertToneMarksToNumbers(rawPinyin.lowercase())
                         processPinyin(py, phones)
                     }
                 }
@@ -60,6 +61,30 @@ object ChineseG2p {
     }
 
     private fun isChinese(ch: Char): Boolean = ch.code in 0x4E00..0x9FFF
+
+    /**
+     * Convert Unicode tone marks to tone numbers.
+     * e.g. "chūn" → "chun1", "ái" → "ai2", "mǎi" → "mai3", "zài" → "zai4"
+     */
+    private fun convertToneMarksToNumbers(pinyin: String): String {
+        val tones = mapOf(
+            // Tone 1 (macron)
+            'ā' to "a1", 'ē' to "e1", 'ī' to "i1", 'ō' to "o1", 'ū' to "u1", 'ǖ' to "v1",
+            // Tone 2 (acute)
+            'á' to "a2", 'é' to "e2", 'í' to "i2", 'ó' to "o2", 'ú' to "u2", 'ǘ' to "v2",
+            // Tone 3 (caron)
+            'ǎ' to "a3", 'ě' to "e3", 'ǐ' to "i3", 'ǒ' to "o3", 'ǔ' to "u3", 'ǚ' to "v3",
+            // Tone 4 (grave)
+            'à' to "a4", 'è' to "e4", 'ì' to "i4", 'ò' to "o4", 'ù' to "u4", 'ǜ' to "v4",
+            // ü variants (also use v)
+            'ü' to "v",
+        )
+        val result = StringBuilder()
+        for (ch in pinyin) {
+            tones[ch]?.let { result.append(it) } ?: result.append(ch)
+        }
+        return result.toString()
+    }
 
     private fun processPinyin(py: String, phones: MutableList<String>) {
         if (py.isEmpty()) return
