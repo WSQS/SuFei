@@ -30,6 +30,9 @@ object NarTtsModule {
     fun provideNarOnnxEngine(
         @ApplicationContext context: Context,
     ): NarOnnxEngine {
+        // Initialize G2P dictionary from assets (fork-sopho)
+        ChineseG2p.init(context)
+
         val candidates = listOf(
             java.io.File(context.getExternalFilesDir(null), "models/nar"),
             java.io.File(android.os.Environment.getExternalStorageDirectory(), "SuFei/models/nar"),

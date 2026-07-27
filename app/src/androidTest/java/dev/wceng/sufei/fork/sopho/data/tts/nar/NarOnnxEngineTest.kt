@@ -24,6 +24,7 @@ class NarOnnxEngineTest {
     @Before
     fun setup() {
         context = ApplicationProvider.getApplicationContext()
+        ChineseG2p.init(context)
         val candidates = listOf(
             File(context.getExternalFilesDir(null), "models/nar"),
             File(android.os.Environment.getExternalStorageDirectory(), "SuFei/models/nar"),

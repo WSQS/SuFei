@@ -22,6 +22,7 @@ class NarDemoGenerator {
     @Before
     fun setup() {
         context = ApplicationProvider.getApplicationContext()
+        ChineseG2p.init(context)
         // getExternalFilesDir works for the test process on Android 13
         val extDir = File(context.getExternalFilesDir(null), "models/nar")
         modelDir = if (extDir.resolve("fastspeech2_csmsc.onnx").isFile) extDir else null
