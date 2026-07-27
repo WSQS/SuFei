@@ -25,3 +25,8 @@ keystore.properties
 
 # Local instructions
 CLAUDE.local.md
+
+# TTS training artifacts
+wandb/
+**/wandb/
+*.wandb
