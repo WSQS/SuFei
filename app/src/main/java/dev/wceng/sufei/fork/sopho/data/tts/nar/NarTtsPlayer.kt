@@ -66,7 +66,7 @@ class NarTtsPlayer @Inject constructor(
             sampleRate,
             AudioFormat.CHANNEL_OUT_MONO,
             AudioFormat.ENCODING_PCM_FLOAT,
-        ).coerceAtLeast(samples.size)
+        ).coerceAtLeast(samples.size * Float.SIZE_BYTES)
 
         audioTrack = AudioTrack(
             AudioAttributes.Builder()
