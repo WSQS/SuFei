@@ -63,27 +63,29 @@ object ChineseG2p {
     private fun isChinese(ch: Char): Boolean = ch.code in 0x4E00..0x9FFF
 
     /**
-     * Convert Unicode tone marks to tone numbers.
+     * Convert Unicode tone marks to tone numbers appended at end.
      * e.g. "chūn" → "chun1", "ái" → "ai2", "mǎi" → "mai3", "zài" → "zai4"
      */
     private fun convertToneMarksToNumbers(pinyin: String): String {
-        val tones = mapOf(
-            // Tone 1 (macron)
-            'ā' to "a1", 'ē' to "e1", 'ī' to "i1", 'ō' to "o1", 'ū' to "u1", 'ǖ' to "v1",
-            // Tone 2 (acute)
-            'á' to "a2", 'é' to "e2", 'í' to "i2", 'ó' to "o2", 'ú' to "u2", 'ǘ' to "v2",
-            // Tone 3 (caron)
-            'ǎ' to "a3", 'ě' to "e3", 'ǐ' to "i3", 'ǒ' to "o3", 'ǔ' to "u3", 'ǚ' to "v3",
-            // Tone 4 (grave)
-            'à' to "a4", 'è' to "e4", 'ì' to "i4", 'ò' to "o4", 'ù' to "u4", 'ǜ' to "v4",
-            // ü variants (also use v)
-            'ü' to "v",
+        val toneMarks = mapOf(
+            'ā' to ('a' to 1), 'ē' to ('e' to 1), 'ī' to ('i' to 1), 'ō' to ('o' to 1), 'ū' to ('u' to 1), 'ǖ' to ('v' to 1),
+            'á' to ('a' to 2), 'é' to ('e' to 2), 'í' to ('i' to 2), 'ó' to ('o' to 2), 'ú' to ('u' to 2), 'ǘ' to ('v' to 2),
+            'ǎ' to ('a' to 3), 'ě' to ('e' to 3), 'ǐ' to ('i' to 3), 'ǒ' to ('o' to 3), 'ǔ' to ('u' to 3), 'ǚ' to ('v' to 3),
+            'à' to ('a' to 4), 'è' to ('e' to 4), 'ì' to ('i' to 4), 'ò' to ('o' to 4), 'ù' to ('u' to 4), 'ǜ' to ('v' to 4),
+            'ü' to ('v' to 0),
         )
-        val result = StringBuilder()
+        val base = StringBuilder()
+        var tone = 0
         for (ch in pinyin) {
-            tones[ch]?.let { result.append(it) } ?: result.append(ch)
+            val mapped = toneMarks[ch]
+            if (mapped != null) {
+                base.append(mapped.first)
+                if (mapped.second > 0) tone = mapped.second
+            } else {
+                base.append(ch)
+            }
         }
-        return result.toString()
+        return base.toString() + (if (tone > 0) tone else 5).toString()
     }
 
     private fun processPinyin(py: String, phones: MutableList<String>) {
