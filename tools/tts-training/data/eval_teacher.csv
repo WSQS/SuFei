@@ -1,0 +1,1 @@
+poem_id,title,form,split,token_length,audio_duration,teacher_duration,duration_ratio,cer,substitution_rate,deletion_rate,insertion_rate,trailing_deletion,trailing_deletion_ratio,complete_lines,total_lines,repeat_span_count,longest_repeat_span,status,failure_reasons

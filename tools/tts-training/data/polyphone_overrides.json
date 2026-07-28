@@ -1,0 +1,157 @@
+{
+  "_description": "Polyphone override table for Tang poetry. Context-based pronunciation rules.",
+  "_format": "Each entry maps a character to context patterns. First match wins.",
+  "_usage": "Apply after pypinyin, before MFA dictionary generation.",
+
+  "衰": {
+    "rule": "always cuī in poetry context (回乡偶书: 鬓毛衰)",
+    "override": "cuī",
+    "reason": "唐诗中'衰'押韵读 cuī，不是现代 shuāi"
+  },
+  "斜": {
+    "rule": "xiá when at line end rhyming with a/ia/ua, otherwise xié",
+    "contexts": {
+      "远上寒山石径斜": "xiá",
+      "青山郭外斜": "xiá",
+      "斜月里": "xié",
+      "斜晖": "xié",
+      "斜阳": "xié",
+      "倾斜": "xié"
+    },
+    "default": "xié",
+    "reason": "古诗押韵读 xiá（与花/家/霞等押韵），其余读 xié"
+  },
+  "看": {
+    "rule": "kān only as 'guard/watch', kàn for 'look/see'",
+    "contexts": {
+      "遥看": "kàn",
+      "卧看": "kàn",
+      "探看": "kàn",
+      "独看": "kàn",
+      "相看": "kàn"
+    },
+    "default": "kàn",
+    "reason": "唐诗中几乎全部读 kàn"
+  },
+  "将": {
+    "rule": "jiàng for general(noun), jiāng otherwise",
+    "contexts": {
+      "征南将": "jiàng",
+      "上将": "jiàng",
+      "飞将": "jiàng",
+      "大将": "jiàng"
+    },
+    "default": "jiāng",
+    "reason": "将军读 jiàng，其余读 jiāng"
+  },
+  "重": {
+    "rule": "chóng for 'again', zhòng for 'heavy'",
+    "contexts": {
+      "重送": "chóng",
+      "重逢": "chóng",
+      "重相见": "chóng",
+      "万重山": "chóng",
+      "百重泉": "chóng",
+      "重问": "chóng",
+      "重重": "chóng",
+      "愁重": "zhòng",
+      "恩重": "zhòng"
+    },
+    "default": "chóng",
+    "reason": "唐诗中多为'重复/层层'义读 chóng"
+  },
+  "还": {
+    "rule": "huán for 'return', hái for 'still'",
+    "contexts": {
+      "还将": "huán",
+      "还乡": "huán",
+      "生还": "huán",
+      "归还": "huán",
+      "还有": "hái",
+      "还是": "hái"
+    },
+    "default": "huán",
+    "reason": "唐诗中多为'返回'义读 huán"
+  },
+  "为": {
+    "rule": "wèi for 'for/because', wéi for 'be/do'",
+    "contexts": {
+      "为君": "wèi",
+      "为客": "wèi",
+      "为问": "wèi",
+      "为感": "wèi",
+      "无不为": "wéi",
+      "化为": "wéi",
+      "成为": "wéi"
+    },
+    "default": "wéi",
+    "reason": "介词读 wèi，动词读 wéi"
+  },
+  "思": {
+    "rule": "sī for 'think/miss', never sāi in poetry",
+    "override": "sī",
+    "reason": "唐诗中全部读 sī"
+  },
+  "教": {
+    "rule": "jiāo for 'teach', jiào for 'religion/order'",
+    "contexts": {
+      "不教": "jiào",
+      "教授": "jiāo",
+      "教吹": "jiào",
+      "教人": "jiào"
+    },
+    "default": "jiào",
+    "reason": "使令义读 jiào，教授义读 jiāo"
+  },
+  "觉": {
+    "rule": "jué for 'feel/wake', jiào for 'sleep'",
+    "contexts": {
+      "不觉": "jué",
+      "一觉": "jiào",
+      "感觉": "jué",
+      "夜吟应觉": "jué"
+    },
+    "default": "jué",
+    "reason": "感知义读 jué，睡眠义读 jiào"
+  },
+  "行": {
+    "rule": "xíng for 'walk/go', háng for 'row/line'",
+    "contexts": {
+      "行人": "xíng",
+      "行舟": "xíng",
+      "不行": "xíng",
+      "经行": "xíng",
+      "同行": "xíng",
+      "流行": "xíng",
+      "行长": "háng"
+    },
+    "default": "xíng",
+    "reason": "行走义读 xíng，行列义读 háng"
+  },
+  "朝": {
+    "rule": "zhāo for 'morning', cháo for 'dynasty/court'",
+    "contexts": {
+      "朝辞": "zhāo",
+      "朝雨": "zhāo",
+      "朝朝": "zhāo",
+      "早朝": "cháo",
+      "朝鲜": "cháo",
+      "朝服": "cháo",
+      "朝士": "cháo"
+    },
+    "default": "zhāo",
+    "reason": "早晨读 zhāo，朝廷读 cháo"
+  },
+  "长": {
+    "rule": "cháng for 'long', zhǎng for 'grow/elder'",
+    "contexts": {
+      "长老": "zhǎng",
+      "长养": "zhǎng",
+      "长者": "zhǎng",
+      "少年": "zhǎng",
+      "少小": "zhǎng"
+    },
+    "default": "cháng",
+    "reason": "长短读 cháng，生长读 zhǎng"
+  }
+}

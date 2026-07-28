@@ -12,6 +12,7 @@ import dev.wceng.sufei.data.model.UserPreferences
 import dev.wceng.sufei.data.repository.PoemRepository
 import dev.wceng.sufei.data.repository.UserPreferencesRepository
 import dev.wceng.sufei.data.tts.TtsManager
+import dev.wceng.sufei.fork.sopho.data.tts.nar.NarTtsPlayer  // fork-sopho
 import dev.wceng.sufei.ui.navigation.Detail
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -24,6 +25,7 @@ class DetailViewModel @AssistedInject constructor(
     private val poemRepository: PoemRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val ttsManager: TtsManager,
+    private val narTtsPlayer: NarTtsPlayer,  // fork-sopho
     @Assisted val detail: Detail
 ) : ViewModel() {
 
@@ -86,12 +88,25 @@ class DetailViewModel @AssistedInject constructor(
 
     fun stopTts() {
         ttsManager.stop()
+        narTtsPlayer.stop()  // fork-sopho
     }
+
+    /**
+     * Speak using NAR TTS (fork-sopho). Falls back gracefully if models not loaded.
+     */
+    fun speakNar(text: String) {  // fork-sopho
+        viewModelScope.launch {
+            narTtsPlayer.speak(text)
+        }
+    }
+
+    val isNarTtsPlaying = narTtsPlayer.isPlaying  // fork-sopho
 
     override fun onCleared() {
         super.onCleared()
         _poetIdChannel.close()
         ttsManager.release()
+        narTtsPlayer.stop()  // fork-sopho
     }
 
     @AssistedFactory

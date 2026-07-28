@@ -1,0 +1,467 @@
+{
+  "version": "1.0",
+  "frozen_date": "2026-07-26",
+  "description": "24-poem quick test set for TTS content correctness evaluation",
+  "text_normalization": {
+    "remove_punctuation": true,
+    "remove_title_author": true,
+    "remove_spaces": true,
+    "lowercase": false,
+    "traditional_to_simplified": true,
+    "notes": "Content-only comparison: strip title/author prefix, remove all punctuation, unify to simplified Chinese"
+  },
+  "pass_thresholds": {
+    "hard_fail": {
+      "early_stop": "trailing_deletion_ratio > 0.15",
+      "repeated_line": "any complete line repeated",
+      "missing_line": "any line with coverage < 0.5",
+      "corrupt_audio": "audio unreadable or < 1s"
+    },
+    "warn": {
+      "high_cer": "cer > teacher_median_cer + 0.03",
+      "abnormal_duration": "duration_ratio < 0.7 or > 1.8",
+      "repeated_chars": "repeated span >= 4 chars not in original"
+    },
+    "notes": "Thresholds to be calibrated after running teacher audio through ASR"
+  },
+  "samples": [
+    {
+      "poem_id": "wujue_01_jingyesi",
+      "title": "静夜思",
+      "author": "李白",
+      "dynasty": "唐",
+      "form": "五绝",
+      "split": "seen",
+      "content": "床前明月光，疑是地上霜。举头望明月，低头思故乡。",
+      "text_lines": [
+        "床前明月光",
+        "疑是地上霜",
+        "举��望明月",
+        "低头思故乡"
+      ],
+      "notes": "Base model swallows 暖 in similar context; contains repeated 明月",
+      "teacher_wav": "c35a60c1a8e2.wav"
+    },
+    {
+      "poem_id": "wujue_02_dengguanquelou",
+      "title": "登鹳雀楼",
+      "author": "王之涣",
+      "dynasty": "唐",
+      "form": "五绝",
+      "split": "seen",
+      "content": "白日依山尽，黄河入海流。欲穷千里目，更上一层楼。",
+      "text_lines": [
+        "白日依山尽",
+        "黄河入海流",
+        "欲穷千里目",
+        "更上一层楼"
+      ],
+      "teacher_wav": "c90ff9ea5a71.wav"
+    },
+    {
+      "poem_id": "wujue_03_chunxiao",
+      "title": "春晓",
+      "author": "孟浩然",
+      "dynasty": "唐",
+      "form": "五绝",
+      "split": "seen",
+      "content": "春眠不觉晓，处处闻啼鸟。夜来风雨声，花落知多少。",
+      "text_lines": [
+        "春眠不觉晓",
+        "处处闻啼鸟",
+        "夜来风雨声",
+        "花落知多少"
+      ],
+      "notes": "Contains repeated character pattern 处处",
+      "teacher_wav": "ccee5691ba93.wav"
+    },
+    {
+      "poem_id": "wujue_04_unseen",
+      "title": "江雪",
+      "author": "柳宗元",
+      "dynasty": "唐",
+      "form": "五绝",
+      "split": "unseen",
+      "content": "千山鸟飞绝，万径人踪灭。孤舟蓑笠翁，独钓寒江雪。",
+      "text_lines": [
+        "千山鸟飞绝",
+        "万径人踪灭",
+        "孤舟蓑笠翁",
+        "独钓寒江雪"
+      ],
+      "teacher_wav": "58313be2d918.wav"
+    },
+    {
+      "poem_id": "qijue_01_zaoFabaidicheng",
+      "title": "早发白帝城",
+      "author": "李白",
+      "dynasty": "唐",
+      "form": "七绝",
+      "split": "seen",
+      "content": "朝辞白帝彩云间，千里江陵一日还。两岸猿声啼不住，轻舟已过万重山。",
+      "text_lines": [
+        "朝辞白帝彩云间",
+        "千里江陵一日还",
+        "两岸猿声啼不住",
+        "轻舟已过万重山"
+      ]
+    },
+    {
+      "poem_id": "qijue_02_chuyese",
+      "title": "出塞",
+      "author": "王昌龄",
+      "dynasty": "唐",
+      "form": "七绝",
+      "split": "seen",
+      "content": "秦时明月汉时关，万里长征人未还。��使龙城飞将在，不教胡马度阴山。",
+      "text_lines": [
+        "秦时明月汉时关",
+        "万里长征人未还",
+        "但使龙城飞将在",
+        "不教胡马度阴山"
+      ]
+    },
+    {
+      "poem_id": "qijue_03_fengqiaoyebob",
+      "title": "枫桥夜泊",
+      "author": "张继",
+      "dynasty": "唐",
+      "form": "七绝",
+      "split": "seen",
+      "content": "月落乌啼霜满天，江枫渔火对愁眠。姑苏城外寒山寺，夜半钟声到客船。",
+      "text_lines": [
+        "月落乌啼霜满天",
+        "江枫渔火对愁眠",
+        "姑苏城外寒山寺",
+        "夜半钟声到客船"
+      ],
+      "teacher_wav": "6fb73f607ad3.wav"
+    },
+    {
+      "poem_id": "qijue_04_unseen",
+      "title": "凉州词",
+      "author": "王翰",
+      "dynasty": "唐",
+      "form": "七绝",
+      "split": "unseen",
+      "content": "葡萄美酒夜光杯，欲饮琵琶马上催。醉卧沙场��莫笑，古来征战几人回。",
+      "text_lines": [
+        "葡萄美酒夜光杯",
+        "欲饮琵琶马上催",
+        "醉卧沙场君莫笑",
+        "古来征战几人回"
+      ]
+    },
+    {
+      "poem_id": "wulv_01_wangyue",
+      "title": "望岳",
+      "author": "杜甫",
+      "dynasty": "唐",
+      "form": "五律",
+      "split": "seen",
+      "content": "岱宗夫如何？齐鲁青未了。造化钟神秀，阴阳割昏晓。荡胸生曾云，决眦入归鸟。会当凌绝顶，一览众山小。",
+      "text_lines": [
+        "岱宗夫如何",
+        "齐鲁青未了",
+        "造化钟神秀",
+        "阴阳割昏晓",
+        "荡胸生曾云",
+        "决眦入归鸟",
+        "会当凌绝顶",
+        "一览众山小"
+      ],
+      "notes": "Previously early-stopped at second line with max_length=4096",
+      "teacher_wav": "efec283b31e0.wav"
+    },
+    {
+      "poem_id": "wulv_02_shanjuqiuyan",
+      "title": "山居秋暝",
+      "author": "王维",
+      "dynasty": "唐",
+      "form": "五律",
+      "split": "seen",
+      "content": "空山新雨后，天气晚来秋。明月松间照，清泉石上流。竹喧归浣女，莲动下渔舟。随意春芳歇，王孙自可留。",
+      "text_lines": [
+        "空山新雨后",
+        "天气晚来秋",
+        "明月松间照",
+        "清泉石上流",
+        "竹喧归浣女",
+        "莲动下渔舟",
+        "随意春芳歇",
+        "王孙自可留"
+      ],
+      "teacher_wav": "44ba4afb80db.wav"
+    },
+    {
+      "poem_id": "wulv_03_chunwang",
+      "title": "春望",
+      "author": "杜甫",
+      "dynasty": "唐",
+      "form": "五律",
+      "split": "seen",
+      "content": "国破山河在，城春草木深。感时花溅泪，恨别鸟惊心。烽火连三月，家书抵万金。白头搔更短，浑欲不胜簪。",
+      "text_lines": [
+        "国破山河在",
+        "城春草木深",
+        "感时花溅泪",
+        "恨别鸟惊心",
+        "烽火连三月",
+        "家书抵万金",
+        "白头搔更短",
+        "浑欲不胜簪"
+      ],
+      "teacher_wav": "89d3a63c6d7f.wav"
+    },
+    {
+      "poem_id": "wulv_04_unseen",
+      "title": "使至塞上",
+      "author": "王维",
+      "dynasty": "唐",
+      "form": "五律",
+      "split": "unseen",
+      "content": "单车欲问边，属国过居延。征蓬出汉塞，归雁入胡天。大漠孤烟直，长河落日圆。萧关逢候骑，都护在燕然。",
+      "text_lines": [
+        "单车欲问边",
+        "属国过居延",
+        "征蓬出汉塞",
+        "归雁入胡天",
+        "大漠孤烟直",
+        "长河落日圆",
+        "萧关逢候骑",
+        "都护在燕然"
+      ]
+    },
+    {
+      "poem_id": "qilv_01_jinse",
+      "title": "锦瑟",
+      "author": "李商隐",
+      "dynasty": "唐",
+      "form": "七律",
+      "split": "seen",
+      "content": "锦瑟无端五十弦，一弦一柱思华年。庄生晓梦迷蝴蝶，望帝春心托杜鹃。沧海月明珠有泪，蓝田日暖玉生烟。此情可待成追忆？只是当时已惘然。",
+      "text_lines": [
+        "锦瑟无端五十弦",
+        "一弦一柱思华年",
+        "庄生晓梦迷蝴蝶",
+        "望帝春心托杜鹃",
+        "沧海月明珠有泪",
+        "蓝田日暖玉生烟",
+        "此情可待��追忆",
+        "只是当时已惘然"
+      ],
+      "notes": "Previously early-stopped; base model swallows 暖; legal repetition 弦",
+      "teacher_wav": "1921957e6e83.wav"
+    },
+    {
+      "poem_id": "qilv_02_huanghejilou",
+      "title": "黄鹤楼",
+      "author": "崔颢",
+      "dynasty": "唐",
+      "form": "七律",
+      "split": "seen",
+      "content": "昔人已乘黄鹤去，此地空余黄鹤楼。黄鹤一去不复返，白云千载空悠悠。晴川历历汉阳树，芳草萋萋鹦鹉洲。日暮乡关何处是？烟波江上使人愁。",
+      "text_lines": [
+        "昔人已乘黄鹤去",
+        "此地空余黄鹤楼",
+        "黄鹤一去不复���",
+        "白云千载空悠悠",
+        "晴川历历汉阳树",
+        "芳草萋萋鹦鹉洲",
+        "日暮乡关何处是",
+        "烟波江���使人愁"
+      ],
+      "notes": "Legal repetition: 黄鹤 x3, 空x2, 历历, 萋萋"
+    },
+    {
+      "poem_id": "qilv_03_wuyixiang",
+      "title": "乌衣巷",
+      "author": "刘禹锡",
+      "dynasty": "唐",
+      "form": "七律",
+      "split": "seen",
+      "content": "朱雀桥边野草花，乌衣巷口夕阳斜。旧时王谢堂前燕，飞入寻常百姓家。",
+      "text_lines": [
+        "朱雀桥边野草花",
+        "乌衣巷口夕阳斜",
+        "旧时王谢堂前燕",
+        "飞入寻常百姓家"
+      ],
+      "notes": "Actually 七绝 length but included as 4-line poem",
+      "teacher_wav": "8b671db8c10d.wav"
+    },
+    {
+      "poem_id": "qilv_04_unseen",
+      "title": "无题",
+      "author": "李商隐",
+      "dynasty": "唐",
+      "form": "七律",
+      "split": "unseen",
+      "content": "相见时难别���难，东风无力百花残。春蚕到死丝方尽，蜡炬成灰泪始干。晓镜但愁云鬓改，夜吟应觉月光寒。蓬山此去无多路，青鸟殷勤为探看。",
+      "text_lines": [
+        "相见时难别亦难",
+        "东风无力百花残",
+        "春蚕到死丝方尽",
+        "蜡炬成灰泪始干",
+        "晓镜但愁云鬓改",
+        "夜吟应觉月光寒",
+        "蓬山此去无多路",
+        "青鸟殷勤为探看"
+      ],
+      "notes": "Legal repetition: 难x2"
+    },
+    {
+      "poem_id": "changshi_01_jiangjinjiu",
+      "title": "将进酒",
+      "author": "李白",
+      "dynasty": "唐",
+      "form": "长诗",
+      "split": "seen",
+      "content": "君不见黄河之水天上来，奔流到海不复回。君不见高堂明镜悲白发，朝如青丝暮成雪。人生得意须尽欢，莫使金樽空对月。天生我材必有用，千金散尽还复来。",
+      "text_lines": [
+        "君不见黄河之水天上来",
+        "奔流到海不复回",
+        "君不见高堂明镜悲白发",
+        "朝如青丝暮成雪",
+        "人生得意须尽欢",
+        "莫使金樽空对月",
+        "天生我材必有用",
+        "千金散尽还复来"
+      ],
+      "notes": "Legal repetition: 君不见, 不x3, 来x2; long single inference",
+      "teacher_wav": "ee16df5673bc.wav"
+    },
+    {
+      "poem_id": "changshi_02_chunjianghuayueye",
+      "title": "春江花月夜",
+      "author": "张若虚",
+      "dynasty": "唐",
+      "form": "长诗",
+      "split": "unseen",
+      "content": "春江潮水连海平，海上明月共潮生。滟滟随波千万里，何��春江无月明。江流宛转绕芳甸，月照花林皆似霰。空里流霜不觉飞，汀上白沙看不见。",
+      "text_lines": [
+        "春江潮水连海平",
+        "海上明月共潮生",
+        "滟滟随波千万里",
+        "何处春江无月明",
+        "江流宛转绕芳甸",
+        "月照花林皆似霰",
+        "空里流霜不觉���",
+        "汀上白沙看不见"
+      ],
+      "notes": "Legal repetition: 江, 月, 春, 明; unseen long poem"
+    },
+    {
+      "poem_id": "changshi_03_shudaonan",
+      "title": "蜀道难（节选）",
+      "author": "李白",
+      "dynasty": "唐",
+      "form": "长诗",
+      "split": "unseen",
+      "content": "噫吁嚱，危乎高哉！蜀道之难，难于上青天！蚕丛及鱼凫，开国何茫然。尔来四万八千岁，不��秦塞通人烟。西当太白有鸟道，可以横绝峨眉巅。",
+      "text_lines": [
+        "噫吁嚱",
+        "危乎高���",
+        "蜀道之难",
+        "难于上青天",
+        "蚕丛及鱼凫",
+        "开国何茫然",
+        "尔来四万八千岁",
+        "不与秦塞通人烟",
+        "西当太白有鸟道",
+        "可以横绝峨眉巅"
+      ],
+      "notes": "Rare characters: 噫吁嚱, 凫; legal repetition: 难"
+    },
+    {
+      "poem_id": "changshi_04_pipaxing",
+      "title": "琵琶行（节选）",
+      "author": "白居易",
+      "dynasty": "唐",
+      "form": "长诗",
+      "split": "seen",
+      "content": "浔阳江头夜送客，枫叶荻花秋瑟瑟。主人下马客在船，举酒欲饮无管弦。醉不成欢惨将别，别时茫茫江浸月。忽闻水上琵琶声，主人忘归客不发。",
+      "text_lines": [
+        "浔阳江头夜送客",
+        "枫叶荻花秋瑟瑟",
+        "主人下马客在船",
+        "举酒欲饮无管弦",
+        "醉不���欢惨将别",
+        "别时茫茫江浸月",
+        "忽闻水上琵琶声",
+        "主人忘归客不发"
+      ],
+      "notes": "Very long poem (full 877 chars), using first 8 lines; legal repetition: 客x3, 主人x2"
+    },
+    {
+      "poem_id": "stress_01_shengpizi",
+      "title": "山行",
+      "author": "杜牧",
+      "dynasty": "唐",
+      "form": "压力",
+      "split": "unseen",
+      "content": "远上寒山石径斜，白云生处有人家。停车坐爱枫��晚，霜叶红于二月花。",
+      "text_lines": [
+        "远上寒山石径斜",
+        "白云生处有人家",
+        "停车坐爱枫林晚",
+        "霜叶红于二月花"
+      ],
+      "notes": "多音字: 斜(xié/xiá); stress test for pronunciation"
+    },
+    {
+      "poem_id": "stress_02_polyphone",
+      "title": "回乡偶书",
+      "author": "贺知章",
+      "dynasty": "唐",
+      "form": "压力",
+      "split": "seen",
+      "content": "少小离家老大回，乡音无改鬓毛衰。儿童相见不相识，笑问客从何处来。",
+      "text_lines": [
+        "少小离家老大��",
+        "乡音无改鬓毛衰",
+        "儿童相见不相识",
+        "笑问客从何处来"
+      ],
+      "notes": "多音字: 衰(cuī/shuāi); legal 相见"
+    },
+    {
+      "poem_id": "stress_03_similar_lines",
+      "title": "金缕衣",
+      "author": "佚名",
+      "dynasty": "唐",
+      "form": "压力",
+      "split": "unseen",
+      "content": "劝君莫惜金缕衣，劝君惜取少年时。花开堪折直须折，莫待无花空折枝。",
+      "text_lines": [
+        "劝君莫惜金缕���",
+        "劝君惜取少年时",
+        "花开堪折直须折",
+        "莫待无花空折枝"
+      ],
+      "notes": "Legal repetition: 劝君x2, 折x3; highly similar adjacent lines",
+      "teacher_wav": "d5cea0c3607d.wav"
+    },
+    {
+      "poem_id": "stress_04_dielezi",
+      "title": "登高",
+      "author": "杜甫",
+      "dynasty": "唐",
+      "form": "压力",
+      "split": "seen",
+      "content": "风急天高猿啸哀，渚清沙白鸟飞回。无边落木萧萧下，不尽长江滚滚来。万里悲秋常作客，百年多病独登台。艰难苦恨繁霜鬓，潦倒新停浊酒杯。",
+      "text_lines": [
+        "风急天高猿啸哀",
+        "渚清沙白鸟飞回",
+        "无边落木萧��下",
+        "不尽长江滚滚来",
+        "万里悲秋常作客",
+        "百年多病独登台",
+        "艰难苦恨繁霜鬓",
+        "潦倒新停浊酒杯"
+      ],
+      "notes": "Legal diezi: 萧萧, 滚滚; stress test for repeat detection false positive",
+      "teacher_wav": "eeb217f8cb2d.wav"
+    }
+  ]
+}

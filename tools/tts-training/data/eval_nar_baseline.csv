@@ -1,0 +1,25 @@
+poem_id,title,form,split,token_length,audio_duration,teacher_duration,duration_ratio,cer,substitution_rate,deletion_rate,insertion_rate,trailing_deletion,trailing_deletion_ratio,complete_lines,total_lines,repeat_span_count,longest_repeat_span,status,failure_reasons
+wujue_01_jingyesi,静夜思,五绝,seen,20,5.4,13.12,0.412,0.15,0.0,0.0,0.15,0,0.0,4,4,0,0,WARN,ABNORMAL_DURATION
+wujue_02_dengguanquelou,登鹳雀楼,五绝,seen,20,5.41,14.08,0.384,0.05,0.0,0.0,0.05,0,0.0,4,4,0,0,WARN,ABNORMAL_DURATION
+wujue_03_chunxiao,春晓,五绝,seen,20,5.44,11.04,0.493,0.05,0.0,0.0,0.05,0,0.0,4,4,0,0,WARN,ABNORMAL_DURATION
+wujue_04_unseen,江雪,五绝,unseen,20,5.12,11.36,0.451,0.0,0.0,0.0,0.0,0,0.0,4,4,0,0,WARN,ABNORMAL_DURATION
+qijue_01_zaoFabaidicheng,早发白帝城,七绝,seen,28,7.21,,,0.0714,0.0,0.0,0.0714,0,0.0,4,4,0,0,PASS,
+qijue_02_chuyese,出塞,七绝,seen,29,6.72,,,0.1379,0.0,0.069,0.069,0,0.0,4,4,0,0,PASS,
+qijue_03_fengqiaoyebob,枫桥夜泊,七绝,seen,28,7.01,12.0,0.584,0.0,0.0,0.0,0.0,0,0.0,4,4,0,0,WARN,ABNORMAL_DURATION
+qijue_04_unseen,凉州词,七绝,unseen,29,6.96,,,0.069,0.0,0.069,0.0,0,0.0,4,4,0,0,PASS,
+wulv_01_wangyue,望岳,五律,seen,40,10.28,20.4,0.504,0.3,0.0,0.1,0.2,0,0.0,8,8,0,0,WARN,HIGH_CER; ABNORMAL_DURATION
+wulv_02_shanjuqiuyan,山居秋暝,五律,seen,40,10.5,19.8,0.53,0.1,0.0,0.0,0.1,0,0.0,8,8,0,0,WARN,ABNORMAL_DURATION
+wulv_03_chunwang,春望,五律,seen,40,10.61,19.48,0.545,0.175,0.0,0.025,0.15,0,0.0,8,8,0,0,WARN,HIGH_CER; ABNORMAL_DURATION
+wulv_04_unseen,使至塞上,五律,unseen,40,10.65,,,0.325,0.0,0.1,0.225,0,0.0,8,8,0,0,WARN,HIGH_CER
+qilv_01_jinse,锦瑟,七律,seen,56,13.91,23.76,0.586,0.1429,0.0,0.0536,0.0893,0,0.0,8,8,0,0,WARN,ABNORMAL_DURATION
+qilv_02_huanghejilou,黄鹤楼,七律,seen,56,13.96,,,0.1071,0.0,0.0357,0.0714,0,0.0,8,8,0,0,PASS,
+qilv_03_wuyixiang,乌衣巷,七律,seen,28,7.12,12.12,0.588,0.0357,0.0,0.0,0.0357,0,0.0,4,4,0,0,WARN,ABNORMAL_DURATION
+qilv_04_unseen,无题,七律,unseen,58,13.76,,,0.2586,0.0,0.1207,0.1379,0,0.0,8,8,0,0,WARN,HIGH_CER
+changshi_01_jiangjinjiu,将进酒,长诗,seen,62,14.84,24.64,0.602,0.0161,0.0,0.0,0.0161,0,0.0,8,8,0,0,WARN,ABNORMAL_DURATION
+changshi_02_chunjianghuayueye,春江花月夜,长诗,unseen,57,13.69,,,0.4035,0.0351,0.1754,0.193,0,0.0,7,8,0,0,FAIL,MISSING_LINE; HIGH_CER
+changshi_03_shudaonan,蜀道难（节选）,长诗,unseen,55,13.19,,,0.5455,0.0727,0.2182,0.2545,0,0.0,7,10,0,0,FAIL,MISSING_LINE; HIGH_CER
+changshi_04_pipaxing,琵琶行（节选）,长诗,seen,56,14.4,,,0.1429,0.0,0.0536,0.0893,0,0.0,8,8,0,0,PASS,
+stress_01_shengpizi,山行,压力,unseen,29,6.83,,,0.2759,0.0,0.1034,0.1724,0,0.0,4,4,0,0,WARN,HIGH_CER
+stress_02_polyphone,回乡偶书,压力,seen,28,7.41,,,0.1071,0.0,0.0357,0.0714,0,0.0,4,4,0,0,PASS,
+stress_03_similar_lines,金缕衣,压力,unseen,28,6.88,12.28,0.56,0.6071,0.0,0.2857,0.3214,0,0.0,3,4,0,0,FAIL,MISSING_LINE; HIGH_CER; ABNORMAL_DURATION
+stress_04_dielezi,登高,压力,seen,56,14.04,24.04,0.584,0.1607,0.0,0.0714,0.0893,0,0.0,8,8,0,0,WARN,ABNORMAL_DURATION

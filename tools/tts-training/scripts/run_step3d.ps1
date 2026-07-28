@@ -1,0 +1,2 @@
+$env:JAVA_HOME = "C:\Users\wsqsy\.jdks\ms-17.0.17"
+& "tools\tts-training\venv_moss\Scripts\python.exe" "tools\tts-training\scripts\step3d_dur_correct_bias.py"
