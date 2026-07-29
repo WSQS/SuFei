@@ -1,0 +1,9 @@
+onnxruntime>=1.18
+funasr>=1.0
+librosa>=0.10
+pyworld>=0.3
+pypinyin>=0.50
+soundfile>=0.12
+numpy<2
+torch>=2.0
+torchaudio>=2.0

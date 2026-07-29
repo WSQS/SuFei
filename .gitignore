@@ -30,3 +30,19 @@ CLAUDE.local.md
 wandb/
 **/wandb/
 *.wandb
+
+# TTS training data — large binary artifacts, not tracked
+tools/tts-training/data/paddle_distill_features/
+tools/tts-training/data/paddle_mfa_corpus/
+tools/tts-training/data/paddle_mfa_aligned/
+tools/tts-training/data/mfa_new129_corpus/
+tools/tts-training/data/mfa_new129_aligned/
+tools/tts-training/data/unseen_mfa_corpus/
+tools/tts-training/data/unseen_mfa_aligned/
+tools/tts-training/data/unseen_features/
+tools/tts-training/checkpoints/
+tools/tts-training/output/
+tools/tts-training/logs/
+tools/tts-training/tmp/
+
+# Local setup notes (not tracked)

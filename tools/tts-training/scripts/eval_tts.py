@@ -252,7 +252,7 @@ def load_asr_model():
         model="paraformer-zh",
         vad_model="fsmn-vad",
         punc_model="ct-punc",
-        device="cuda",
+        device="cpu",
         disable_update=True,
     )
     return model
@@ -260,9 +260,9 @@ def load_asr_model():
 
 def transcribe(asr_model, wav_path: str) -> Tuple[str, float]:
     """Return (text, duration_seconds)."""
-    import torchaudio
-    info = torchaudio.info(wav_path)
-    duration = info.num_frames / info.sample_rate
+    import soundfile as sf
+    info = sf.info(wav_path)
+    duration = info.frames / info.samplerate
 
     result = asr_model.generate(
         input=wav_path,

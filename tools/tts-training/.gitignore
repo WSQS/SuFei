@@ -34,3 +34,7 @@ data/duration_labels.json
 checkpoints/
 logs/
 data/norm_stats.json
+
+# Local run scripts
+run_*.ps1
+run_*.bat

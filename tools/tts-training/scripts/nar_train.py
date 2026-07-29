@@ -35,7 +35,7 @@ LOG_DIR = ROOT / "logs"
 # ─── Dataset ───────────────────────────────────────────────────────────
 
 class TTSDataset(Dataset):
-    def __init__(self, manifest_path, feature_dir, max_mel_len=2000):
+    def __init__(self, manifest_path, feature_dir, max_mel_len=2000, max_samples=0):
         self.records = []
         with open(manifest_path, encoding="utf-8") as f:
             for line in f:
@@ -43,7 +43,10 @@ class TTSDataset(Dataset):
                 if r["mel_len"] <= max_mel_len:
                     r["_npz_path"] = str(feature_dir / f"{r['poem_id']}.npz")
                     self.records.append(r)
-        print(f"Dataset: {len(self.records)} samples (max_mel_len={max_mel_len})")
+        if max_samples > 0:
+            self.records.sort(key=lambda r: r["mel_len"])
+            self.records = self.records[:max_samples]
+        print(f"Dataset: {len(self.records)} samples (max_mel_len={max_mel_len}, max_samples={max_samples})")
 
     def __len__(self):
         return len(self.records)
@@ -188,30 +191,41 @@ def masked_mse_loss(pred, target, mask):
 def length_regulate_batch(x, durations):
     """Expand encoder output by durations, padded to max output length.
 
+    Vectorized — no Python loops, no .item() syncs.
     x: [B, L, D]
     durations: [B, L] (int, mel frames per phoneme)
-
-    Returns: [B, T_max, D] where T_max = max(sum(durations))
+    Returns: [B, T_max, D]
     """
     B, L, D = x.shape
+    durations = durations.clamp(min=0)
     total_durs = durations.sum(dim=1)
     T_max = int(total_durs.max().item())
-    if T_max == 0:
-        T_max = 1
+
+    # Build segment ID per phoneme: [B, L] → each phoneme gets a unique segment index
+    # Then expand to frame-level using cumsum trick
+    # start_idx[b, l] = sum of durations[0..l-1]
+    start_idx = durations.cumsum(dim=1) - durations  # [B, L]
+
+    # Create frame-level index: [B, T_max]
+    frame_idx = torch.arange(T_max, device=x.device).unsqueeze(0).expand(B, T_max)  # [B, T_max]
+
+    # For each frame, find which phoneme it belongs to
+    # phoneme_idx[b, t] = argmax of (start_idx <= t)
+    # Use searchsorted equivalent: sum(start_idx <= t)
+    # [B, T_max, L] comparison would be too much memory, so do it per-batch with gather
 
     output = torch.zeros(B, T_max, D, device=x.device, dtype=x.dtype)
 
     for b in range(B):
-        pos = 0
-        for i in range(L):
-            d = int(durations[b, i].item())
-            if d <= 0:
-                continue
-            end = min(pos + d, T_max)
-            output[b, pos:end] = x[b, i]
-            pos = end
-            if pos >= T_max:
-                break
+        d = durations[b]  # [L]
+        starts = start_idx[b]  # [L]
+        # For each frame t, find phoneme index = searchsorted(starts, t, right=True) - 1
+        # But starts is sorted (cumsum), so we can use bucketize
+        idx = torch.bucketize(frame_idx[b], starts + d, right=True)  # [T_max]
+        idx = idx.clamp(max=L - 1)
+        # Mask out frames beyond total duration
+        mask = frame_idx[b] < total_durs[b]
+        output[b] = x[b, idx] * mask.unsqueeze(-1)
 
     return output
 
@@ -222,12 +236,29 @@ def train(args):
     device = args.device
     print(f"Device: {device}")
 
-    # Dataset
-    feature_dir = ROOT / "data" / "nar_features"
-    dataset = TTSDataset(MANIFEST, feature_dir, max_mel_len=args.max_mel_len)
+    # Dataset — use distillation manifest/features if --distill flag is set
+    if args.manifest_override:
+        manifest = Path(args.manifest_override)
+        if not manifest.is_absolute():
+            manifest = ROOT / args.manifest_override
+        feature_dir = ROOT / "data" / "paddle_distill_features"
+        stats_path = Path(args.stats_override) if args.stats_override else ROOT / "data" / "paddle_distill_norm_stats.json"
+        if not stats_path.is_absolute():
+            stats_path = ROOT / args.stats_override if args.stats_override else stats_path
+        print(f"MANIFEST OVERRIDE: {manifest}")
+    elif args.distill:
+        manifest = ROOT / "data" / "paddle_distill_manifest.jsonl"
+        feature_dir = ROOT / "data" / "paddle_distill_features"
+        stats_path = ROOT / "data" / "paddle_distill_norm_stats.json"
+        print("DISTILL MODE: using PaddleSpeech teacher data")
+    else:
+        manifest = MANIFEST
+        feature_dir = ROOT / "data" / "nar_features"
+        stats_path = ROOT / "data" / "norm_stats.json"
+
+    dataset = TTSDataset(manifest, feature_dir, max_mel_len=args.max_mel_len, max_samples=args.max_samples)
 
     # Compute or load normalization stats
-    stats_path = ROOT / "data" / "norm_stats.json"
     if stats_path.exists() and not args.recompute_stats:
         with open(stats_path) as f:
             raw = json.load(f)
@@ -276,6 +307,16 @@ def train(args):
         num_workers=0,
         drop_last=False,
     )
+
+    # Validation set
+    val_dataset = None
+    if args.val_manifest:
+        val_manifest = Path(args.val_manifest)
+        if not val_manifest.is_absolute():
+            val_manifest = ROOT / args.val_manifest
+        val_feat_dir = feature_dir
+        val_dataset = TTSDataset(val_manifest, val_feat_dir, max_mel_len=args.max_mel_len)
+        print(f"Validation set: {len(val_dataset)} samples from {val_manifest}")
 
     # Compute mean log duration for bias init
     if not args.resume:
@@ -358,12 +399,59 @@ def train(args):
             "n_samples": len(dataset),
             "mean_log_dur": mean_log_dur,
             "resumed": args.resume is not None,
+            "distill": args.distill,
+            "gt_variance": args.gt_variance,
         },
     )
 
     print(f"\n{'='*70}")
     print(f"Training started")
     print(f"{'='*70}")
+
+    @torch.no_grad()
+    def run_validation(model, val_dataset, mel_mean_t, mel_std_t, f0_mean_v, f0_std_v,
+                       energy_mean_v, energy_std_v):
+        model.eval()
+        l1s = []
+        for i in range(len(val_dataset)):
+            item = val_dataset[i]
+            phone_ids = torch.tensor([item["phoneme_ids"]], dtype=torch.long, device=device)
+            dur_gt = torch.tensor([item["durations"]], dtype=torch.long, device=device)
+            mel_gt = torch.tensor(item["mel"]).unsqueeze(0).to(device)
+            f0_gt = torch.tensor(item["f0"]).unsqueeze(0).to(device)
+            e_gt = torch.tensor(item["energy"]).unsqueeze(0).to(device)
+            mel_mask = torch.zeros(1, mel_gt.size(1), dtype=torch.bool, device=device)
+
+            mel_norm = (mel_gt - mel_mean_t) / mel_std_t
+            f0_norm = torch.where(
+                f0_gt > 0,
+                (torch.log(f0_gt.clamp(min=1)) - f0_mean_v) / f0_std_v,
+                torch.zeros_like(f0_gt),
+            )
+            e_norm = (e_gt - energy_mean_v) / energy_std_v
+
+            x = model.embedding(phone_ids) * math.sqrt(model.d_model)
+            x = model.pos_enc(x)
+            for layer in model.encoder_layers:
+                x = layer(x)
+
+            mel_input = length_regulate_batch(x, dur_gt)
+            T_out = mel_input.size(1)
+            mel_input = mel_input + \
+                model.pitch_embed(f0_norm[:, :T_out].unsqueeze(-1)) + \
+                model.energy_embed(e_norm[:, :T_out].unsqueeze(-1))
+            mel_input = model.pos_enc(mel_input)
+            dec = mel_input
+            for layer in model.decoder_layers:
+                dec = layer(dec)
+            mel_pred = model.mel_linear(dec)
+
+            T = min(mel_pred.size(1), mel_norm.size(1))
+            l1 = (mel_pred[:, :T] - mel_norm[:, :T]).abs().mean().item()
+            l1s.append(l1)
+
+        model.train()
+        return float(np.mean(l1s))
 
     step = start_step
     epoch = start_step * args.batch_size // len(dataset)
@@ -414,17 +502,26 @@ def train(args):
             T_gt = mel_gt.size(1)
             T_min = min(T_pred, T_gt)
 
-            # Expand pitch/energy to mel length
-            pitch_expanded = length_regulate_batch(
-                pitch_pred_enc.unsqueeze(-1), durations_gt
-            ).squeeze(-1)
-            energy_expanded = length_regulate_batch(
-                energy_pred_enc.unsqueeze(-1), durations_gt
-            ).squeeze(-1)
+            if args.gt_variance:
+                # B' mode: use GT pitch/energy for decoder, detach predictors
+                # f0_norm/energy_norm are already mel-domain [B, T_gt]
+                # just align to T_pred (same as mel alignment below)
+                T_var = min(T_pred, T_gt)
+                pitch_expanded = f0_norm[:, :T_var]
+                energy_expanded = energy_norm[:, :T_var]
+                # Detach predictor outputs so only mel loss trains backbone
+                log_dur_pred = log_dur_pred.detach()
+                pitch_pred_enc = pitch_pred_enc.detach()
+                energy_pred_enc = energy_pred_enc.detach()
+            else:
+                # Original mode: use PREDICTED pitch/energy for decoder input
+                pitch_expanded = length_regulate_batch(
+                    pitch_pred_enc.unsqueeze(-1), durations_gt
+                ).squeeze(-1)
+                energy_expanded = length_regulate_batch(
+                    energy_pred_enc.unsqueeze(-1), durations_gt
+                ).squeeze(-1)
 
-            # Use PREDICTED pitch/energy for decoder input (not GT)
-            # This eliminates train/inference mismatch — decoder learns
-            # to work with predicted variance, not GT variance.
             pitch_embed = model.pitch_embed(pitch_expanded[:, :T_pred].unsqueeze(-1))
             energy_embed = model.energy_embed(energy_expanded[:, :T_pred].unsqueeze(-1))
 
@@ -432,8 +529,9 @@ def train(args):
             mel_input = model.pos_enc(mel_input)
 
             dec = mel_input
+            dec_mask = mel_mask[:, :T_pred] if args.decoder_mask else None
             for layer in model.decoder_layers:
-                dec = layer(dec)
+                dec = layer(dec, mask=dec_mask)
             mel_pred = model.mel_linear(dec)
 
             # ── Compute losses ──
@@ -456,21 +554,40 @@ def train(args):
                 phone_mask[:, :L_phone],
             )
 
-            # Pitch loss (L1 on expanded encoder predictions vs GT, masked)
-            T_pitch = min(pitch_expanded.size(1), f0_norm.size(1))
-            pitch_loss = masked_l1_loss(
-                pitch_expanded[:, :T_pitch],
-                f0_norm[:, :T_pitch],
-                mel_mask[:, :T_pitch],
-            )
-
-            # Energy loss (L1 on expanded encoder predictions vs GT, masked)
-            T_energy = min(energy_expanded.size(1), energy_norm.size(1))
-            energy_loss = masked_l1_loss(
-                energy_expanded[:, :T_energy],
-                energy_norm[:, :T_energy],
-                mel_mask[:, :T_energy],
-            )
+            # Pitch/energy loss — compare predictor output vs GT
+            if args.gt_variance:
+                # Predictors are detached; expand predictions to mel domain for comparison
+                pitch_pred_exp = length_regulate_batch(
+                    pitch_pred_enc.unsqueeze(-1), durations_gt
+                ).squeeze(-1)
+                energy_pred_exp = length_regulate_batch(
+                    energy_pred_enc.unsqueeze(-1), durations_gt
+                ).squeeze(-1)
+                T_pitch = min(pitch_pred_exp.size(1), f0_norm.size(1))
+                pitch_loss = masked_l1_loss(
+                    pitch_pred_exp[:, :T_pitch],
+                    f0_norm[:, :T_pitch],
+                    mel_mask[:, :T_pitch],
+                )
+                T_energy = min(energy_pred_exp.size(1), energy_norm.size(1))
+                energy_loss = masked_l1_loss(
+                    energy_pred_exp[:, :T_energy],
+                    energy_norm[:, :T_energy],
+                    mel_mask[:, :T_energy],
+                )
+            else:
+                T_pitch = min(pitch_expanded.size(1), f0_norm.size(1))
+                pitch_loss = masked_l1_loss(
+                    pitch_expanded[:, :T_pitch],
+                    f0_norm[:, :T_pitch],
+                    mel_mask[:, :T_pitch],
+                )
+                T_energy = min(energy_expanded.size(1), energy_norm.size(1))
+                energy_loss = masked_l1_loss(
+                    energy_expanded[:, :T_energy],
+                    energy_norm[:, :T_energy],
+                    mel_mask[:, :T_energy],
+                )
 
             total_loss = W_MEL * mel_loss + W_DUR * dur_loss + W_PITCH * pitch_loss + W_ENERGY * energy_loss
             total_loss.backward()
@@ -510,6 +627,19 @@ def train(args):
                     "step": step,
                     "epoch": epoch,
                 })
+
+            if val_dataset is not None and step % args.val_interval == 0:
+                val_l1 = run_validation(
+                    model, val_dataset,
+                    mel_mean, mel_std,
+                    f0_mean, f0_std,
+                    energy_mean, energy_std,
+                )
+                val_msg = f"  [VAL] step {step:5d} | val_mel_l1={val_l1:.4f} | train_mel_l1={mel_loss.item():.4f}"
+                print(val_msg)
+                log_file.write(val_msg + "\n")
+                log_file.flush()
+                wandb.log({"val/mel_l1": val_l1, "step": step})
 
             if step % args.save_interval == 0:
                 ckpt_path = CHECKPOINT_DIR / f"fs2_step{step}.pt"
@@ -571,6 +701,14 @@ if __name__ == "__main__":
     parser.add_argument("--reset_dur_bias", action="store_true", help="Re-init duration predictor bias on resume")
     parser.add_argument("--wandb_project", default="sufei-tts", help="WandB project name")
     parser.add_argument("--wandb_name", default=None, help="WandB run name")
+    parser.add_argument("--distill", action="store_true", help="Use PaddleSpeech distillation data")
+    parser.add_argument("--gt_variance", action="store_true", help="Use GT pitch/energy for decoder, detach predictors")
+    parser.add_argument("--max_samples", type=int, default=0, help="Limit dataset to first N samples (sorted by mel_len). 0 = no limit")
+    parser.add_argument("--decoder_mask", action="store_true", help="Apply mel_mask to decoder self-attention")
+    parser.add_argument("--manifest_override", default=None, help="Override manifest path (relative to ROOT or absolute)")
+    parser.add_argument("--stats_override", default=None, help="Override norm stats path (relative to ROOT or absolute)")
+    parser.add_argument("--val_manifest", default=None, help="Validation manifest for periodic mel L1 eval")
+    parser.add_argument("--val_interval", type=int, default=100, help="Run validation every N steps")
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     args = parser.parse_args()
     train(args)
