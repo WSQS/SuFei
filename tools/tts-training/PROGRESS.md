@@ -82,16 +82,32 @@ Duration predictor 预测总帧数仅为 GT 的约 31%（如 595 -> 186 帧）�
 
 ### 修复后重训评估
 
-| 实验 | 训练方式 | GT-var CER | Pred-var CER | Dur L1 | val mel L1 |
-|------|---------|------------|-------------|--------|-----------|
-| D300fix GT-var | gt_variance | 95.6% | — | — | 0.540 |
-| D300fix E2E | e2e predictor | 99.7% | 99.6% | 5.7 | 0.810 |
+| 实验 | 训练方式 | Train pred-var CER | Holdout CER | Dur L1 | val mel L1 |
+|------|---------|-------------------|-------------|--------|-----------|
+| D300fix GT-var | gt_variance | — | 95.6% (GT-var) | — | 0.540 |
+| D300fix E2E | e2e (GT dur 展开) | 98.7% | 99.6% | 5.7 | 0.810 |
+| **Full E2E** | **full_e2e (pred dur 展开)** | **80.6%** | **98.7%** | **2.4(train)/5.4(holdout)** | **0.921** |
 
-Duration predictor 明显改善（Dur L1 7.3 -> 5.7），pitch loss 下降（0.65 -> 0.30）。
-但 holdout CER 仍然 ~100%，泛化失败。
+#### 训练/推理 gap 分析
 
-**结论：ADR-0008 ���认有效。** 数据 bug 修复后，7.6M FS2 从 300 首诗仍然无法��化。
-泛化失败归因于模型容量/架构，而非数据管线问题。
+诊断发现旧 E2E 训练存在严重的 train/inference gap：
+- 训练时 length regulator 用 **GT durations** 展开，decoder 从未见过 predicted duration 序列
+- 推理时用 predicted durations，帧级偏移累积导致 mel 对齐完全崩溃
+- 三配置分解（训练样本 poem_0001）：
+  - Config A (GT dur + GT var): mel L1 = 0.197
+  - Config B (GT dur + Pred var): mel L1 = 0.192 (pitch/energy predictor 几乎完美)
+  - Config C (Pred dur + Pred var): mel L1 = 0.732 (**duration 是唯一罪魁**)
+
+#### Full E2E 训练（--full_e2e）
+
+新增 `--full_e2e` 模式：训练时 decoder 用 predicted durations 展开，消除 gap。
+
+训练集 pred-var CER 从 98.7% 降到 80.6%，100%-CER 样本从 18/30 降到 2/30。
+但 CER 仍然太高（不可部署），holdout 仍然 ~99%。
+
+**结论：ADR-0008 确认有效。** Duration bug 修复 + Full E2E 训练缩小了 train/inference
+gap，但 7.6M FS2 从 300 首诗仍然无法泛化。训练集 pred-var CER=80.6% 也远高于
+PaddleSpeech 的 ~7%。
 
 ### 下一步方向
 

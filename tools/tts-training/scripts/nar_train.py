@@ -401,6 +401,7 @@ def train(args):
             "resumed": args.resume is not None,
             "distill": args.distill,
             "gt_variance": args.gt_variance,
+            "full_e2e": args.full_e2e,
         },
     )
 
@@ -435,11 +436,30 @@ def train(args):
             for layer in model.encoder_layers:
                 x = layer(x)
 
-            mel_input = length_regulate_batch(x, dur_gt)
-            T_out = mel_input.size(1)
-            mel_input = mel_input + \
-                model.pitch_embed(f0_norm[:, :T_out].unsqueeze(-1)) + \
-                model.energy_embed(e_norm[:, :T_out].unsqueeze(-1))
+            if args.full_e2e:
+                # Validate with predicted variance (matches training)
+                log_dur = model.duration_predictor(x)
+                pitch_p = model.pitch_predictor(x)
+                energy_p = model.energy_predictor(x)
+                pred_durations = log_dur.exp().round().clamp(min=1).long()
+                mel_input = length_regulate_batch(x, pred_durations)
+                T_out = mel_input.size(1)
+                pitch_exp = length_regulate_batch(
+                    pitch_p.unsqueeze(-1), pred_durations
+                ).squeeze(-1)
+                energy_exp = length_regulate_batch(
+                    energy_p.unsqueeze(-1), pred_durations
+                ).squeeze(-1)
+                mel_input = mel_input + \
+                    model.pitch_embed(pitch_exp[:, :T_out].unsqueeze(-1)) + \
+                    model.energy_embed(energy_exp[:, :T_out].unsqueeze(-1))
+            else:
+                # Validate with GT variance (default)
+                mel_input = length_regulate_batch(x, dur_gt)
+                T_out = mel_input.size(1)
+                mel_input = mel_input + \
+                    model.pitch_embed(f0_norm[:, :T_out].unsqueeze(-1)) + \
+                    model.energy_embed(e_norm[:, :T_out].unsqueeze(-1))
             mel_input = model.pos_enc(mel_input)
             dec = mel_input
             for layer in model.decoder_layers:
@@ -486,7 +506,7 @@ def train(args):
             )
             energy_norm = (energy_gt - energy_mean) / energy_std
 
-            # Forward (teacher-forced: use GT durations + pitch + energy)
+            # Forward
             x = model.embedding(phoneme_ids) * math.sqrt(model.d_model)
             x = model.pos_enc(x)
             for layer in model.encoder_layers:
@@ -496,25 +516,41 @@ def train(args):
             pitch_pred_enc = model.pitch_predictor(x)
             energy_pred_enc = model.energy_predictor(x)
 
-            # Length regulate with GT durations
-            mel_input = length_regulate_batch(x, durations_gt)
-            T_pred = mel_input.size(1)
-            T_gt = mel_gt.size(1)
-            T_min = min(T_pred, T_gt)
-
             if args.gt_variance:
-                # B' mode: use GT pitch/energy for decoder, detach predictors
-                # f0_norm/energy_norm are already mel-domain [B, T_gt]
-                # just align to T_pred (same as mel alignment below)
+                # B' mode: use GT durations + GT pitch/energy, detach predictors
+                mel_input = length_regulate_batch(x, durations_gt)
+                T_pred = mel_input.size(1)
+                T_gt = mel_gt.size(1)
+                T_min = min(T_pred, T_gt)
+
                 T_var = min(T_pred, T_gt)
                 pitch_expanded = f0_norm[:, :T_var]
                 energy_expanded = energy_norm[:, :T_var]
-                # Detach predictor outputs so only mel loss trains backbone
                 log_dur_pred = log_dur_pred.detach()
                 pitch_pred_enc = pitch_pred_enc.detach()
                 energy_pred_enc = energy_pred_enc.detach()
+            elif args.full_e2e:
+                # Full E2E: use PREDICTED durations + predicted pitch/energy
+                # This eliminates the train/inference gap completely
+                pred_durations = log_dur_pred.detach().exp().round().clamp(min=1).long()
+                mel_input = length_regulate_batch(x, pred_durations)
+                T_pred = mel_input.size(1)
+                T_gt = mel_gt.size(1)
+                T_min = min(T_pred, T_gt)
+
+                pitch_expanded = length_regulate_batch(
+                    pitch_pred_enc.unsqueeze(-1), pred_durations
+                ).squeeze(-1)
+                energy_expanded = length_regulate_batch(
+                    energy_pred_enc.unsqueeze(-1), pred_durations
+                ).squeeze(-1)
             else:
-                # Original mode: use PREDICTED pitch/energy for decoder input
+                # Default E2E: GT durations + predicted pitch/energy
+                mel_input = length_regulate_batch(x, durations_gt)
+                T_pred = mel_input.size(1)
+                T_gt = mel_gt.size(1)
+                T_min = min(T_pred, T_gt)
+
                 pitch_expanded = length_regulate_batch(
                     pitch_pred_enc.unsqueeze(-1), durations_gt
                 ).squeeze(-1)
@@ -529,14 +565,14 @@ def train(args):
             mel_input = model.pos_enc(mel_input)
 
             dec = mel_input
-            dec_mask = mel_mask[:, :T_pred] if args.decoder_mask else None
+            dec_mask = mel_mask[:, :T_pred] if (args.decoder_mask and T_pred <= mel_mask.size(1)) else None
             for layer in model.decoder_layers:
                 dec = layer(dec, mask=dec_mask)
             mel_pred = model.mel_linear(dec)
 
             # ── Compute losses ──
 
-            # Mel loss (L1, masked)
+            # Mel loss (L1, masked) — compare at the shorter length
             mel_loss = masked_l1_loss(
                 mel_pred[:, :T_min],
                 mel_norm[:, :T_min],
@@ -703,6 +739,7 @@ if __name__ == "__main__":
     parser.add_argument("--wandb_name", default=None, help="WandB run name")
     parser.add_argument("--distill", action="store_true", help="Use PaddleSpeech distillation data")
     parser.add_argument("--gt_variance", action="store_true", help="Use GT pitch/energy for decoder, detach predictors")
+    parser.add_argument("--full_e2e", action="store_true", help="Full E2E: use predicted durations+pitch+energy for decoder (no teacher forcing)")
     parser.add_argument("--max_samples", type=int, default=0, help="Limit dataset to first N samples (sorted by mel_len). 0 = no limit")
     parser.add_argument("--decoder_mask", action="store_true", help="Apply mel_mask to decoder self-attention")
     parser.add_argument("--manifest_override", default=None, help="Override manifest path (relative to ROOT or absolute)")
