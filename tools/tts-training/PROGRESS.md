@@ -48,11 +48,27 @@
 逗号 G2P 映射 bug：`PUNCT_TO_PHONE` 中 `，`(U+FF0C) 被编码为 U+FFFD（mojibake），
 导致 702 个逗号全部映射为 `<unk>`(pid=1) 而非正确的 pid=263。已修复并重新生成所有 manifest。
 
-### 下一步方向（待定）
+### E2E Predictor 实验
 
-1. **预训练初始化**：从 PaddleSpeech FS2 权重 (37.3M, d_model=384) warm-start
-2. **更好的 teacher**：用 CosyVoice 3 生成更高质量诗歌音频
-3. **放弃泛化**：将目标诗全部放入训练集，只优化已知诗的表现
+**目的**：去掉 `--gt_variance`，让 duration/pitch/energy predictor 与 acoustic backbone 联合训练，测试 predicted-variance 推理效果。
+
+**训练配置**：D300 data, 24k steps, save_interval=6000, val_interval=100, wandb=`D300_e2e_predictor`
+
+**训练指标**（最终步 24000）：
+| 指标 | 值 |
+|------|------|
+| train mel L1 | 0.255 |
+| val mel L1 | 0.757 |
+| train loss | 1.66 (mel=0.26, dur=0.07, pitch=0.65, energy=0.68) |
+
+注：val mel L1 (0.757) 远高于 GT-variance 的 D300 (0.545)，因为 predictor 误差级联到 mel。但 mel L1 与 ASR 可懂度脱钩（见 ADR-0008），需 ASR 评估定论。
+
+### 下一步方向
+
+1. **E2E predicted-variance 评估**（进行中）：用 predictor 输出推理，对比 GT-variance 和 teacher 效果
+2. **预训练初始化**：从 PaddleSpeech FS2 权重 (37.3M, d_model=384) warm-start
+3. **更好的 teacher**：用 CosyVoice 3 生成更高质量诗歌音频
+4. **放弃泛化**��将目标诗全部放入训练集，只优化已知诗的表现
 
 ## 历史方案
 
