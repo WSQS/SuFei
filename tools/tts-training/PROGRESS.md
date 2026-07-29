@@ -109,6 +109,23 @@ Duration predictor 预测总帧数仅为 GT 的约 31%（如 595 -> 186 帧）�
 gap，但 7.6M FS2 从 300 首诗仍然无法泛化。训练集 pred-var CER=80.6% 也远高于
 PaddleSpeech 的 ~7%。
 
+#### 瓶颈分解（Full E2E 模型，训练集 30 首）
+
+| 层级 | CER | 增量 | 说明 |
+|------|-----|------|------|
+| P2 (GT mel -> vocoder -> ASR) | 31.8% | 基线 | teacher 音频质量限制 |
+| GT-var (model mel, perfect dur/pitch/energy) | 71.0% | +39pp | **acoustic model 容量不足** |
+| Pred-var (model mel, predicted everything) | 80.6% | +9.6pp | duration predictor 残余误差 |
+
+- mel L1: GT-var=0.311 vs Pred-var=0.319（差距仅 0.008，gap 已消除）
+- 但 67% 的 mel 帧是静音 -> mel L1 被静音帧掩盖，实际语音帧质量远差于 L1 数字
+- Duration ratio (pred/gt) = 0.76，仍系统性偏短 24%
+- mel L1 vs CER 相关系数 = 0.365（脱钩确认）
+
+**核心瓶颈是 acoustic model 容量不足**，不是 duration/pitch/energy predictor。
+即使给模型完美的 duration + pitch + energy（GT-var），CER 仍达 71%。
+PaddleSpeech FS2（37.3M, d_model=384）在同一管线下达 6.8% CER。
+
 ### 下一步方向
 
 1. **预训练初始化**：从 PaddleSpeech FS2 权重 (37.3M, d_model=384) warm-start
