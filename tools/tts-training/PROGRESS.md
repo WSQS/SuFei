@@ -74,13 +74,30 @@ Duration predictor 预测总帧数仅为 GT 的约 31%（如 595 -> 186 帧）�
 ### 关键 bug 修复
 
 1. 逗号 G2P 映射 bug（已修复，KNOWN_ISSUES #1）
-2. Duration 标签全垃圾（已诊断，修复中，KNOWN_ISSUES #6）
+2. Duration 标签全垃圾（已修复，KNOWN_ISSUES #6）：
+   - TextGrid/mel 时轴 1.39x 不匹配 + MFA 字符匹配失败
+   - `build_durations_fixed()`: 比例缩放 TextGrid 时间戳到 mel_len
+   - 91% 非首音素 dur=2 -> 3.2%，首音素占比 80% -> 1%
+   - 所有 manifest 已重建（paddle_distill/train_171/train_300/holdout_20）
+
+### 修复后重训评估
+
+| 实验 | 训练方式 | GT-var CER | Pred-var CER | Dur L1 | val mel L1 |
+|------|---------|------------|-------------|--------|-----------|
+| D300fix GT-var | gt_variance | 95.6% | — | — | 0.540 |
+| D300fix E2E | e2e predictor | 99.7% | 99.6% | 5.7 | 0.810 |
+
+Duration predictor 明显改善（Dur L1 7.3 -> 5.7），pitch loss 下降（0.65 -> 0.30）。
+但 holdout CER 仍然 ~100%，泛化失败。
+
+**结论：ADR-0008 ���认有效。** 数据 bug 修复后，7.6M FS2 从 300 首诗仍然无法��化。
+泛化失败归因于模型容量/架构，而非数据管线问题。
 
 ### 下一步方向
 
-1. **修复数据管线**：解决 TextGrid/mel 时轴不匹配 + char matching，重建所有 manifest
-2. **修复后重新���练评估**：确认泛化失败是否由数据 bug 导致
-3. 如修复后仍失败：预训练初始化 / 更好 teacher / 放弃泛化
+1. **预训练初始化**：从 PaddleSpeech FS2 权重 (37.3M, d_model=384) warm-start
+2. **更好的 teacher**：用 CosyVoice 3 生成更高质量诗歌音频
+3. **放弃泛化**：将目标诗全部放入训练集，只优化已知诗的表���
 
 ## 历史方案
 
