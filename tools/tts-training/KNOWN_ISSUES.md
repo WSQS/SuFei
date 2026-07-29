@@ -54,7 +54,53 @@ Files written on Windows with LF-only line endings cause `cmd.exe` to fail silen
 
 ---
 
-## 5. Start-Process via SSH doesn't persist after session close
+## 6. Duration labels are garbage: MFA char matching failure + TextGrid/mel timescale mismatch
+
+**Status**: DIAGNOSED — fix pending
+
+**Root cause (two compounding bugs)**:
+
+1. **MFA char matching failure**: `build_durations()` in
+   `generate_paddlespeech_distillation_data.py:323` matches TextGrid word-tier
+   labels against individual characters from the poem text. The original MFA
+   run produced TextGrids where character labels frequently failed to match
+   (likely encoding or normalization differences), causing `char_interval=None`
+   for 91% of phonemes. Each unmatched phoneme receives the default duration
+   of 2 frames.
+
+2. **TextGrid/mel timescale mismatch**: TextGrid total time is ~1.39x longer
+   than the actual mel duration (e.g. 11.92s vs 8.59s for poem_0001). This is
+   because the TextGrid was generated from a 16kHz wav (resampled for MFA),
+   but the mel was extracted at 24kHz with hop=300. The `FRAME_RATE=80` constant
+   doesn't account for this discrepancy.
+
+3. **Diff correction dumps error on phoneme[0]**: After `build_durations()`
+   returns mostly-2s, the sum doesn't match `mel_len`. Lines 759-764 correct
+   this by adding the entire diff to the max-duration index. Since all
+   non-first phonemes are 2, the first phoneme absorbs 80%+ of the total
+   duration (typically 500-1000 frames).
+
+**Evidence**:
+- 91% of non-first phoneme durations = 2 frames (25ms)
+- First phoneme takes 80%+ of total frames in 81% of train_300 poems
+- Pitch predictor collapsed to constant output (std=0.0000)
+- Model learned pitch/energy→mel, not phoneme→mel (verified: frames 0-559
+  are identical phoneme embeddings; variance comes entirely from pitch/energy)
+- All H1/H2/D300/E2E experiments used these garbage duration labels
+
+**Impact**: ALL prior experiments' duration supervision was invalid. The
+generalization failure (ADR-0008) cannot be attributed to model capacity
+or architecture until this is fixed.
+
+**Fix plan**:
+1. Resolve TextGrid/mel timescale mismatch (resample or re-extract)
+2. Fix `build_durations` char matching
+3. Rebuild all manifests (paddle_distill, train_171, train_300, holdout_20, external)
+4. Retrain and re-evaluate
+
+---
+
+## 7. Start-Process via SSH doesn't persist after session close
 
 **Status**: Workaround in place
 

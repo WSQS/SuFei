@@ -10,7 +10,7 @@
 - FS2 (142MB) + HiFi-GAN (50MB) = 192MB，用户通过 ADB 推送
 - Kotlin G2P 端侧实现，268 音素词汇表
 
-## 研究实验：��零训练 FS2（已暂停，见 ADR-0008）
+## 研究实验：从零训练 FS2
 
 ### 目标
 
@@ -19,16 +19,16 @@
 ### 数据管线
 
 ```
-诗歌文本 → G2P (pypinyin)
-  → PaddleSpeech FS2 ONNX → teacher mel
-  → PaddleSpeech HiFiGAN ONNX → teacher audio
-  → 特征提取 (mel/f0/energy)
-  → MFA 对齐 → per-phoneme durations
-  → ASR 质量过滤 (FunASR Paraformer)
-  → manifest (.jsonl) + features (.npz)
+诗歌文本 -> G2P (pypinyin)
+  -> PaddleSpeech FS2 ONNX -> teacher mel
+  -> PaddleSpeech HiFiGAN ONNX -> teacher audio
+  -> 特征提取 (mel/f0/energy)
+  -> MFA 对齐 -> per-phoneme durations
+  -> ASR 质量过滤 (FunASR Paraformer)
+  -> manifest (.jsonl) + features (.npz)
 ```
 
-### 实验结果
+### 实验结果（基于 garbage duration 标签，需重新评估）
 
 | 实验 | 数据 | 训练方式 | Holdout delta | Train delta |
 |------|------|---------|--------------|-------------|
@@ -36,30 +36,29 @@
 | H2 | 171首 | 混合窗口(50/25/25) | +69.9% | — |
 | D300 | 300首 | 完整诗, GT variance | +69.9% | — |
 
-��心发现：
-- 模型学到的是序列级记忆，不是可组合的音素→声学映射
-- 训练方式（完整诗 vs 混合窗口）几乎无影响（H1→H2: <1pp）
-- 数据规模（171→300）几乎无影���（H1→D300: <1pp）
-- 早期 checkpoint（500-3000步）不存在泛化窗口
-- mel L1 与 ASR 可懂度脱钩
+> **重要更正**：以上所有实验使用了垃圾 duration 标签（见 KNOWN_ISSUES #6）。
+> 91% 的非首音素 duration = 2帧，首音素占 80%+ 总帧数。
+> 模型实际学到的是 pitch/energy -> mel 映射，而非 phoneme -> mel。
+> 泛化失败的归因需在修复数据后重新评估。
 
-### 关键 bug 修复
+### 诊断分析（2026-07-29）
 
-逗号 G2P 映射 bug：`PUNCT_TO_PHONE` 中 `，`(U+FF0C) 被编码为 U+FFFD（mojibake），
-导致 702 个逗号全部映射为 `<unk>`(pid=1) 而非正确的 pid=263。已修复并重新生成所有 manifest。
+逐层 trace 诊断（`diagnose_layers.py`, `diagnose_durations.py`）发现三个根本问题：
+
+1. **Duration 标签全垃圾**：MFA TextGrid 字符匹配失败 + TextGrid/mel 时轴 1.39x 不匹配，
+   导致 `build_durations` 返回 91% 默认值2帧，diff 修正堆到 phoneme[0]
+2. **Pitch predictor 坍缩**：输出常数 (std=0.0000)，因 duration 错位导致训练信号无效
+3. **66.7% mel 帧是静音**：teacher 音频前后静音被全部分配给首音素
+
+训练集表现分析（`diagnose_train_perf.py`）：
+- GT-variance 下 frames 0-559 全部是同一 phoneme embedding（帧间 L2=0）
+- decoder 的帧级区分信息完全来自 pitch embed (std=0.38) + energy embed (std=0.33)
+- 用修正后的 durations 推理同一训练样本，mel L1 从 0.42 恶化到 0.67
+  （模型从未学过真正的 phoneme -> mel 映射）
 
 ### E2E Predictor 实验
 
-**目的**：去掉 `--gt_variance`，让 duration/pitch/energy predictor 与 acoustic backbone 联合训练，测试 predicted-variance 推理效果。
-
-**训练配置**：D300 data, 24k steps, save_interval=6000, val_interval=100, wandb=`D300_e2e_predictor`
-
-**训练指标**（最终步 24000）：
-| 指标 | 值 |
-|------|------|
-| train mel L1 | 0.255 |
-| val mel L1 | 0.757 |
-| train loss | 1.66 (mel=0.26, dur=0.07, pitch=0.65, energy=0.68) |
+去掉 `--gt_variance`，duration/pitch/energy predictor 与 acoustic backbone 联合训练。
 
 **评估结果**（holdout_20, 4 checkpoints）：
 
@@ -70,18 +69,18 @@
 | 18k  | 27.2%        | 99.9%      | 99.3%       | -0.6%  | 7.4    |
 | 24k  | 27.2%        | 99.5%      | 99.0%       | -0.5%  | 7.3    |
 
-**结论：E2E predictor 训练未能改善泛化。**
+Duration predictor 预测总帧数仅为 GT 的约 31%（如 595 -> 186 帧），音频 3x 加速。
 
-- GT-variance CER ~100%，与之前 D300 GT-var 实验一致
-- Duration predictor 灾难性崩溃：预测总帧数仅为 GT 的约 31%（如 595 -> 186 帧），音频 3x 加速
-- Pred-var 与 GT-var 差距可忽略（-0.5%），两者均已接近 100% CER
-- ADR-0008 结论再次确认：模型学的是序列级记忆，而非可组合的音素 -> 声学映射
+### 关键 bug 修复
+
+1. 逗号 G2P 映射 bug（已修复，KNOWN_ISSUES #1）
+2. Duration 标签全垃圾（已诊断，修复中，KNOWN_ISSUES #6）
 
 ### 下一步方向
 
-1. **预训练初始化**：从 PaddleSpeech FS2 权重 (37.3M, d_model=384) warm-start
-2. **更好的 teacher**：用 CosyVoice 3 生成更高质量诗歌音频
-3. **放弃泛化**：将目标诗全部放入训练集，只优化已知诗的表现
+1. **修复数据管线**：解决 TextGrid/mel 时轴不匹配 + char matching，重建所有 manifest
+2. **修复后重新���练评估**：确认泛化失败是否由数据 bug 导致
+3. 如修复后仍失败：预训练初始化 / 更好 teacher / 放弃泛化
 
 ## 历史方案
 
@@ -91,7 +90,7 @@
 
 ### CosyVoice 3 + MOSS-TTS-Nano（早期实验）
 
-51 首诗的 CosyVoice 3 teacher audio → MOSS-Audio-Tokenizer → MOSS-TTS-Nano fine-tune。
+51 首诗的 CosyVoice 3 teacher audio -> MOSS-Audio-Tokenizer -> MOSS-TTS-Nano fine-tune。
 微调成功但生成质量不足。
 
 ## 环境
