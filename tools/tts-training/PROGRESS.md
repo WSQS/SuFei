@@ -161,6 +161,43 @@ PaddleSpeech FS2（37.3M, d_model=384）在同一管线下达 6.8% CER。
 2. **更好的 teacher**：用 CosyVoice 3 生成更高质量诗歌音频
 3. **放弃泛化**：将目标诗全部放入训练集，只优化已知诗的表���
 
+### 远程 manifest 损坏发现 + 重训（v2）
+
+#### 损坏发现
+
+诊断 pitch/energy predictor 时发现：远程 rtx 上的 `train_300_manifest.jsonl` 是**旧损坏版**。
+本地修复版 duration 分布健康（median=7, dur=2 仅 3.2%），但远程版本 89.9% 的音素 dur=2，
+第一个音素吃掉大部分帧（如 poem_0001: `[560, 2, 2, 2, ...]`）。
+
+**根因**：`build_durations_fixed` 中多音素字符匹配逻辑存在 bug——匹配到第一个 "宫" 后 tg_idx
+推进，第二个音素搜索同字时跳到诗句中下一个出现的 "宫"，导致后续所有字符全部 NOT FOUND，
+分配默认 0.05s ≈ 2 帧。这个 bug 在 `fix_durations.py` 本地调试时被修复并重新生成了 manifest，
+但修复后的 manifest 没有同步到远程 rtx，远程训练一直用的是损坏版。
+
+Pitch/energy predictor 在损坏 manifest 上的表现（correlation ≈ 0）证实了诊断：
+帧级 GT 与音素预测完全错位，梯度是纯噪声。
+
+#### Full E2E v2 实验（修复版 manifest, 24k steps）
+
+同步正确 manifest 后重训 `--full_e2e`，其余参数不变。
+
+| 指标 | v1 (坏 dur) | v2 (好 dur) | 变化 |
+|------|-----------|-----------|------|
+| Train pred-var CER | 80.6% | **77.5%** | -3.1pp |
+| Holdout CER | 98.7% | 99.0% | ~持平 |
+| Pitch correlation | 0.041 | **0.403** | **10x** |
+| Energy correlation | 0.034 | **0.264** | **8x** |
+| Pitch phoneme L1 | 0.759 | 0.614 | -19% |
+| Energy phoneme L1 | 0.888 | 0.636 | -28% |
+| val_mel_l1 @ 24k | 0.921 | 0.911 | ~持平 |
+
+Pitch/energy predictor 大幅改善（correlation 10x/8x），但 CER 几乎没变。
+
+**最终结论**：duration 数据损坏确实严重影响了 variance predictor 的学习，修复后 predictor
+相关性大幅提升。但 CER 改善有限（train -3pp, holdout 持平），**acoustic model 容量不足
+仍是核心瓶颈**。7.6M decoder 无法生成足够清晰的 mel，即使 variance predictor 学得更好，
+decoder 也无法利用这些信息生成可识别的语音。
+
 ## 历史方案
 
 ### MOSS-TTS-Nano（已归档）
