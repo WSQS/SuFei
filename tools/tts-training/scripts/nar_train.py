@@ -455,6 +455,8 @@ def train(args):
             "reset_predictors": args.reset_predictors,
             "freeze_steps": args.freeze_steps,
             "full_e2e_steps": args.full_e2e_steps,
+            "alternating": args.alternating,
+            "alt_warmup_steps": args.alt_warmup_steps,
         },
     )
 
@@ -574,116 +576,184 @@ def train(args):
             )
             energy_norm = (energy_gt - energy_mean) / energy_std
 
-            # Forward
-            x = model.embedding(phoneme_ids) * math.sqrt(model.d_model)
-            x = model.pos_enc(x)
-            for layer in model.encoder_layers:
-                x = layer(x, mask=phone_mask)
+            # ── Alternating training (Scheme D) ──
+            # Phase A (even steps): encoder + predictors only, no decoder/mel loss
+            # Phase B (odd steps):  encoder + decoder only, predictors frozen (no_grad)
+            #                       decoder learns to work with PREDICTED variance
+            is_alt = args.alternating and step >= args.alt_warmup_steps
+            is_predictor_step = is_alt and (step % 2 == 0)
 
-            log_dur_pred = model.duration_predictor(x)
-            pitch_pred_enc = model.pitch_predictor(x)
-            energy_pred_enc = model.energy_predictor(x)
+            if is_predictor_step:
+                # ── Phase A: Predictor-only step ──
+                x = model.embedding(phoneme_ids) * math.sqrt(model.d_model)
+                x = model.pos_enc(x)
+                for layer in model.encoder_layers:
+                    x = layer(x, mask=phone_mask)
 
-            # Determine mode for this step (phased training)
-            use_full_e2e = args.full_e2e
-            if args.full_e2e_steps > 0:
-                use_full_e2e = step >= args.full_e2e_steps
+                log_dur_pred = model.duration_predictor(x)
+                pitch_pred = model.pitch_predictor(x)
+                energy_pred = model.energy_predictor(x)
 
-            if args.gt_variance:
-                # B' mode: use GT durations + GT pitch/energy, detach predictors
-                mel_input = length_regulate_batch(x, durations_gt)
-                T_pred = mel_input.size(1)
-                T_gt = mel_gt.size(1)
-                T_min = min(T_pred, T_gt)
+                dur_clipped = durations_gt.float().clamp(min=1, max=100)
+                log_dur_gt = torch.log(dur_clipped)
+                L_phone = min(log_dur_pred.size(1), log_dur_gt.size(1))
+                dur_loss = masked_l1_loss(
+                    log_dur_pred[:, :L_phone], log_dur_gt[:, :L_phone],
+                    phone_mask[:, :L_phone])
 
-                T_var = min(T_pred, T_gt)
-                pitch_expanded = f0_norm[:, :T_var]
-                energy_expanded = energy_norm[:, :T_var]
-                log_dur_pred = log_dur_pred.detach()
-                pitch_pred_enc = pitch_pred_enc.detach()
-                energy_pred_enc = energy_pred_enc.detach()
-            elif use_full_e2e:
-                # Full E2E: use PREDICTED durations + predicted pitch/energy
-                # This eliminates the train/inference gap completely
-                pred_durations = log_dur_pred.detach().exp().round().clamp(min=1).long()
+                f0_phoneme_gt = pool_to_phoneme(f0_norm, durations_gt, phone_mask)
+                energy_phoneme_gt = pool_to_phoneme(energy_norm, durations_gt, phone_mask)
+                L_p = min(pitch_pred.size(1), f0_phoneme_gt.size(1))
+                pitch_loss = masked_l1_loss(
+                    pitch_pred[:, :L_p], f0_phoneme_gt[:, :L_p],
+                    phone_mask[:, :L_p])
+                L_e = min(energy_pred.size(1), energy_phoneme_gt.size(1))
+                energy_loss = masked_l1_loss(
+                    energy_pred[:, :L_e], energy_phoneme_gt[:, :L_e],
+                    phone_mask[:, :L_e])
+
+                mel_loss = torch.tensor(0.0, device=device)
+                total_loss = W_DUR * dur_loss + W_PITCH * pitch_loss + W_ENERGY * energy_loss
+
+            elif is_alt:
+                # ── Phase B: Decoder step with predicted variance ──
+                x = model.embedding(phoneme_ids) * math.sqrt(model.d_model)
+                x = model.pos_enc(x)
+                for layer in model.encoder_layers:
+                    x = layer(x, mask=phone_mask)
+
+                with torch.no_grad():
+                    log_dur_p = model.duration_predictor(x)
+                    pitch_p = model.pitch_predictor(x)
+                    energy_p = model.energy_predictor(x)
+                    pred_durations = log_dur_p.exp().round().clamp(min=1).long()
+
                 mel_input = length_regulate_batch(x, pred_durations)
                 T_pred = mel_input.size(1)
                 T_gt = mel_gt.size(1)
                 T_min = min(T_pred, T_gt)
 
-                pitch_expanded = length_regulate_batch(
-                    pitch_pred_enc.unsqueeze(-1), pred_durations
-                ).squeeze(-1)
-                energy_expanded = length_regulate_batch(
-                    energy_pred_enc.unsqueeze(-1), pred_durations
-                ).squeeze(-1)
+                pitch_exp = length_regulate_batch(
+                    pitch_p.unsqueeze(-1), pred_durations).squeeze(-1)
+                energy_exp = length_regulate_batch(
+                    energy_p.unsqueeze(-1), pred_durations).squeeze(-1)
+
+                pitch_embed = model.pitch_embed(pitch_exp[:, :T_pred].unsqueeze(-1))
+                energy_embed = model.energy_embed(energy_exp[:, :T_pred].unsqueeze(-1))
+                mel_input = mel_input + pitch_embed + energy_embed
+                mel_input = model.pos_enc(mel_input)
+
+                dec = mel_input
+                dec_mask = mel_mask[:, :T_pred] if (args.decoder_mask and T_pred <= mel_mask.size(1)) else None
+                for layer in model.decoder_layers:
+                    dec = layer(dec, mask=dec_mask)
+                mel_pred = model.mel_linear(dec)
+
+                mel_loss = masked_l1_loss(
+                    mel_pred[:, :T_min], mel_norm[:, :T_min],
+                    mel_mask[:, :T_min])
+
+                # Log predictor losses (no grad, monitoring only)
+                with torch.no_grad():
+                    dur_clipped = durations_gt.float().clamp(min=1, max=100)
+                    log_dur_gt = torch.log(dur_clipped)
+                    L_phone = min(log_dur_p.size(1), log_dur_gt.size(1))
+                    dur_loss = masked_l1_loss(
+                        log_dur_p[:, :L_phone], log_dur_gt[:, :L_phone],
+                        phone_mask[:, :L_phone])
+                    f0_phoneme_gt = pool_to_phoneme(f0_norm, durations_gt, phone_mask)
+                    energy_phoneme_gt = pool_to_phoneme(energy_norm, durations_gt, phone_mask)
+                    L_p = min(pitch_p.size(1), f0_phoneme_gt.size(1))
+                    pitch_loss = masked_l1_loss(
+                        pitch_p[:, :L_p], f0_phoneme_gt[:, :L_p],
+                        phone_mask[:, :L_p])
+                    L_e = min(energy_p.size(1), energy_phoneme_gt.size(1))
+                    energy_loss = masked_l1_loss(
+                        energy_p[:, :L_e], energy_phoneme_gt[:, :L_e],
+                        phone_mask[:, :L_e])
+
+                total_loss = W_MEL * mel_loss
+
             else:
-                # Default E2E: GT durations + predicted pitch/energy
-                mel_input = length_regulate_batch(x, durations_gt)
-                T_pred = mel_input.size(1)
-                T_gt = mel_gt.size(1)
-                T_min = min(T_pred, T_gt)
+                # ── Original path: all losses in single backward ──
+                x = model.embedding(phoneme_ids) * math.sqrt(model.d_model)
+                x = model.pos_enc(x)
+                for layer in model.encoder_layers:
+                    x = layer(x, mask=phone_mask)
 
-                pitch_expanded = length_regulate_batch(
-                    pitch_pred_enc.unsqueeze(-1), durations_gt
-                ).squeeze(-1)
-                energy_expanded = length_regulate_batch(
-                    energy_pred_enc.unsqueeze(-1), durations_gt
-                ).squeeze(-1)
+                log_dur_pred = model.duration_predictor(x)
+                pitch_pred_enc = model.pitch_predictor(x)
+                energy_pred_enc = model.energy_predictor(x)
 
-            pitch_embed = model.pitch_embed(pitch_expanded[:, :T_pred].unsqueeze(-1))
-            energy_embed = model.energy_embed(energy_expanded[:, :T_pred].unsqueeze(-1))
+                use_full_e2e = args.full_e2e
+                if args.full_e2e_steps > 0:
+                    use_full_e2e = step >= args.full_e2e_steps
 
-            mel_input = mel_input + pitch_embed + energy_embed
-            mel_input = model.pos_enc(mel_input)
+                if args.gt_variance:
+                    mel_input = length_regulate_batch(x, durations_gt)
+                    T_pred = mel_input.size(1)
+                    T_gt = mel_gt.size(1)
+                    T_min = min(T_pred, T_gt)
+                    T_var = min(T_pred, T_gt)
+                    pitch_expanded = f0_norm[:, :T_var]
+                    energy_expanded = energy_norm[:, :T_var]
+                    log_dur_pred = log_dur_pred.detach()
+                    pitch_pred_enc = pitch_pred_enc.detach()
+                    energy_pred_enc = energy_pred_enc.detach()
+                elif use_full_e2e:
+                    pred_durations = log_dur_pred.detach().exp().round().clamp(min=1).long()
+                    mel_input = length_regulate_batch(x, pred_durations)
+                    T_pred = mel_input.size(1)
+                    T_gt = mel_gt.size(1)
+                    T_min = min(T_pred, T_gt)
+                    pitch_expanded = length_regulate_batch(
+                        pitch_pred_enc.unsqueeze(-1), pred_durations).squeeze(-1)
+                    energy_expanded = length_regulate_batch(
+                        energy_pred_enc.unsqueeze(-1), pred_durations).squeeze(-1)
+                else:
+                    mel_input = length_regulate_batch(x, durations_gt)
+                    T_pred = mel_input.size(1)
+                    T_gt = mel_gt.size(1)
+                    T_min = min(T_pred, T_gt)
+                    pitch_expanded = length_regulate_batch(
+                        pitch_pred_enc.unsqueeze(-1), durations_gt).squeeze(-1)
+                    energy_expanded = length_regulate_batch(
+                        energy_pred_enc.unsqueeze(-1), durations_gt).squeeze(-1)
 
-            dec = mel_input
-            dec_mask = mel_mask[:, :T_pred] if (args.decoder_mask and T_pred <= mel_mask.size(1)) else None
-            for layer in model.decoder_layers:
-                dec = layer(dec, mask=dec_mask)
-            mel_pred = model.mel_linear(dec)
+                pitch_embed = model.pitch_embed(pitch_expanded[:, :T_pred].unsqueeze(-1))
+                energy_embed = model.energy_embed(energy_expanded[:, :T_pred].unsqueeze(-1))
+                mel_input = mel_input + pitch_embed + energy_embed
+                mel_input = model.pos_enc(mel_input)
 
-            # ── Compute losses ──
+                dec = mel_input
+                dec_mask = mel_mask[:, :T_pred] if (args.decoder_mask and T_pred <= mel_mask.size(1)) else None
+                for layer in model.decoder_layers:
+                    dec = layer(dec, mask=dec_mask)
+                mel_pred = model.mel_linear(dec)
 
-            # Mel loss (L1, masked) — compare at the shorter length
-            mel_loss = masked_l1_loss(
-                mel_pred[:, :T_min],
-                mel_norm[:, :T_min],
-                mel_mask[:, :T_min],
-            )
+                mel_loss = masked_l1_loss(
+                    mel_pred[:, :T_min], mel_norm[:, :T_min],
+                    mel_mask[:, :T_min])
 
-            # Duration loss (L1 on log, masked on phone positions)
-            # Clip extreme durations (punctuation pauses) to avoid MSE blowup
-            dur_clipped = durations_gt.float().clamp(min=1, max=100)
-            log_dur_gt = torch.log(dur_clipped)
-            L_phone = min(log_dur_pred.size(1), log_dur_gt.size(1))
-            dur_loss = masked_l1_loss(
-                log_dur_pred[:, :L_phone],
-                log_dur_gt[:, :L_phone],
-                phone_mask[:, :L_phone],
-            )
+                dur_clipped = durations_gt.float().clamp(min=1, max=100)
+                log_dur_gt = torch.log(dur_clipped)
+                L_phone = min(log_dur_pred.size(1), log_dur_gt.size(1))
+                dur_loss = masked_l1_loss(
+                    log_dur_pred[:, :L_phone], log_dur_gt[:, :L_phone],
+                    phone_mask[:, :L_phone])
 
-            # Pitch/energy loss — phoneme-level L1 (no frame-level floor)
-            # Predictor outputs 1 scalar per phoneme, so compare against
-            # phoneme-level mean of GT, not per-frame GT.
-            # This eliminates the irreducible floor from within-phoneme contour.
-            f0_phoneme_gt = pool_to_phoneme(f0_norm, durations_gt, phone_mask)
-            energy_phoneme_gt = pool_to_phoneme(energy_norm, durations_gt, phone_mask)
+                f0_phoneme_gt = pool_to_phoneme(f0_norm, durations_gt, phone_mask)
+                energy_phoneme_gt = pool_to_phoneme(energy_norm, durations_gt, phone_mask)
+                L_p = min(pitch_pred_enc.size(1), f0_phoneme_gt.size(1))
+                pitch_loss = masked_l1_loss(
+                    pitch_pred_enc[:, :L_p], f0_phoneme_gt[:, :L_p],
+                    phone_mask[:, :L_p])
+                L_e = min(energy_pred_enc.size(1), energy_phoneme_gt.size(1))
+                energy_loss = masked_l1_loss(
+                    energy_pred_enc[:, :L_e], energy_phoneme_gt[:, :L_e],
+                    phone_mask[:, :L_e])
 
-            L_p = min(pitch_pred_enc.size(1), f0_phoneme_gt.size(1))
-            pitch_loss = masked_l1_loss(
-                pitch_pred_enc[:, :L_p],
-                f0_phoneme_gt[:, :L_p],
-                phone_mask[:, :L_p],
-            )
-            L_e = min(energy_pred_enc.size(1), energy_phoneme_gt.size(1))
-            energy_loss = masked_l1_loss(
-                energy_pred_enc[:, :L_e],
-                energy_phoneme_gt[:, :L_e],
-                phone_mask[:, :L_e],
-            )
-
-            total_loss = W_MEL * mel_loss + W_DUR * dur_loss + W_PITCH * pitch_loss + W_ENERGY * energy_loss
+                total_loss = W_MEL * mel_loss + W_DUR * dur_loss + W_PITCH * pitch_loss + W_ENERGY * energy_loss
             total_loss.backward()
 
             # Gradient clipping
@@ -699,6 +769,7 @@ def train(args):
                 lr = scheduler.get_last_lr()[0]
                 msg = (
                     f"  step {step:5d}/{args.steps} | epoch {epoch} | "
+                    f"{'[P]' if is_predictor_step else '[D]' if is_alt else '   '} "
                     f"loss={total_loss.item():.4f} "
                     f"mel={mel_loss.item():.4f} "
                     f"dur={dur_loss.item():.4f} "
@@ -812,6 +883,10 @@ if __name__ == "__main__":
     parser.add_argument("--stats_override", default=None, help="Override norm stats path (relative to ROOT or absolute)")
     parser.add_argument("--val_manifest", default=None, help="Validation manifest for periodic mel L1 eval")
     parser.add_argument("--val_interval", type=int, default=100, help="Run validation every N steps")
+    parser.add_argument("--alternating", action="store_true",
+                        help="Scheme D: alternate predictor-only and decoder-only steps")
+    parser.add_argument("--alt_warmup_steps", type=int, default=0,
+                        help="Run non-alternating (original path) for first N steps before starting alternation")
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     args = parser.parse_args()
     train(args)
