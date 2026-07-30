@@ -247,32 +247,6 @@ predicted variance 的分布偏移。差异项是 pitch/energy predictor，不�
 
 优先尝试方案 D（交替训练）——改动最小，不改模型结构，直接切断梯度竞争。
 
-### 方案 D 实现：交替训练（v4）
-
-在 `nar_train.py` 中新增 `--alternating` 和 `--alt_warmup_steps` 参数。启用后：
-
-- **Phase A（偶数步）**：只前向 encoder + 3 个 predictor，计算 dur/pitch/energy loss，
-  不经过 decoder，无 mel loss。梯度只更新 encoder + predictors。
-- **Phase B（奇数步）**：前向 encoder，predictor 在 `no_grad` 下运行，
-  用**预测的** duration/pitch/energy 展开 → decoder → mel loss。
-  梯度更新 encoder + decoder + pitch/energy_embed，但不回传到 predictors。
-
-核心设计意图：
-- Phase A 让 predictor 独立学习，不被 mel loss 的梯度淹没
-- Phase B 让 decoder 在**推理分布**上训练，消除 train/inference gap
-- encoder 在两个阶段都参与，但梯度来源不同（Phase A 从 predictor loss，
-  Phase B 从 mel loss），学到的表征需要同时服务两个目标
-
-Smoke test（100 步）确认 `[P]`/`[D]` 标记交替出现，Phase A 的 mel=0.0000，
-Phase B 的 mel loss 正常下降。
-
-训练参数（与 v2/v3 对齐，仅加 `--alternating`）：
-- 300 首 train + 20 首 holdout val
-- batch_size=8, lr=5e-4, warmup=500, 24k steps, save@6k/12k/18k/24k
-- wandb: `alt_v4_scheme_d`，fdx job: j195
-
-**状态：训练中（j195），待评估 pred-all CER。**
-
 ### 远程 manifest 损坏发现 + 重训（v2）
 
 #### 损坏发现
