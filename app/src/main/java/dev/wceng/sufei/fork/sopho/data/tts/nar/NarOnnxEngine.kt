@@ -11,14 +11,16 @@ import java.nio.FloatBuffer
 /**
  * FastSpeech 2 + HiFi-GAN NAR TTS engine.
  *
- * Pipeline: text → G2P → phone IDs → FS2 ONNX → mel → HiFi-GAN → waveform
+ * Pipeline: text → G2P → phone IDs → FS2 ONNX → mel → (denorm) → HiFi-GAN → waveform
  *
- * @param modelDir directory containing fastspeech2_csmsc.onnx, hifigan_csmsc.onnx, phone_id_map.txt
+ * @param modelDir directory containing FS2 ONNX, HiFiGAN ONNX, phone_id_map.txt
  * @param cpuThreads inference thread count
+ * @param useSuFeiModel if true, loads custom SuFei FS2 (normalized mel output)
  */
 class NarOnnxEngine(
     private val modelDir: File,
     private val cpuThreads: Int = 4,
+    private val useSuFeiModel: Boolean = false,
 ) : Closeable {
 
     private val env: OrtEnvironment = OrtEnvironment.getEnvironment()
@@ -28,9 +30,12 @@ class NarOnnxEngine(
         setInterOpNumThreads(1)
     }
 
-    private val fs2Session: OrtSession = createSession("fastspeech2_csmsc.onnx")
+    private val fs2Session: OrtSession = createSession(
+        if (useSuFeiModel) "fastspeech2_sufei.onnx" else "fastspeech2_csmsc.onnx"
+    )
     private val hifiganSession: OrtSession = createSession("hifigan_csmsc.onnx")
     private val phoneIdMap: Map<String, Int> = loadPhoneIdMap()
+    private val normStats: NormStats? = if (useSuFeiModel) loadNormStats() else null
 
     val sampleRate: Int = 24000
 
@@ -42,11 +47,12 @@ class NarOnnxEngine(
      */
     fun synthesize(text: String): FloatArray {
         val phoneIds = g2p(text)
-        android.util.Log.d("NarOnnxEngine", "G2P: ${text.take(20)} → ${phoneIds.size} ids")
+        android.util.Log.d("NarOnnxEngine", "G2P: ${text.take(20)} → ${phoneIds.size} ids (suFei=$useSuFeiModel)")
         require(phoneIds.isNotEmpty()) { "No valid phonemes from text: $text" }
         val mel = runFastSpeech2(phoneIds)
         android.util.Log.d("NarOnnxEngine", "FS2: mel=${mel.size}x${if (mel.isNotEmpty()) mel[0].size else 0}")
-        val audio = runHifiGan(mel)
+        val melForVocoder = if (normStats != null) denormalizeMel(mel) else mel
+        val audio = runHifiGan(melForVocoder)
         android.util.Log.d("NarOnnxEngine", "HiFiGAN: ${audio.size} samples")
         return audio
     }
@@ -120,6 +126,38 @@ class NarOnnxEngine(
         fs2Session.close()
         sessionOptions.close()
     }
+
+    // fork-sopho: mel denormalization for custom SuFei FS2 model
+    private fun denormalizeMel(mel: Array<FloatArray>): Array<FloatArray> {
+        val stats = normStats ?: return mel
+        return mel.map { frame ->
+            FloatArray(frame.size) { i -> frame[i] * stats.melStd[i] + stats.melMean[i] }
+        }.toTypedArray()
+    }
+
+    private fun loadNormStats(): NormStats? {
+        val file = File(modelDir, "norm_stats.npz")
+        if (!file.isFile) return null
+        java.util.zip.ZipFile(file).use { zf ->
+            val melMean = readNpyFloatArray(zf.getInputStream(zf.getEntry("mel_mean.npy")))
+            val melStd = readNpyFloatArray(zf.getInputStream(zf.getEntry("mel_std.npy")))
+            android.util.Log.d("NarOnnxEngine", "Loaded norm_stats: mel_mean[${melMean.size}]")
+            return NormStats(melMean, melStd)
+        }
+    }
+
+    private fun readNpyFloatArray(stream: java.io.InputStream): FloatArray {
+        val bytes = stream.readBytes()
+        val headerLen = (bytes[8].toInt() and 0xFF) or ((bytes[9].toInt() and 0xFF) shl 8)
+        val dataOffset = 10 + headerLen
+        val nElements = (bytes.size - dataOffset) / 4
+        val result = FloatArray(nElements)
+        val bb = java.nio.ByteBuffer.wrap(bytes, dataOffset, nElements * 4).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        for (i in 0 until nElements) result[i] = bb.float
+        return result
+    }
+
+    private data class NormStats(val melMean: FloatArray, val melStd: FloatArray)
 }
 
 private fun OrtSession.Result.requiredValue(index: Int): OnnxValue =

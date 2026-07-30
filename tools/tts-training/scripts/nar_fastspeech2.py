@@ -127,6 +127,10 @@ class LengthRegulator(nn.Module):
             x, 1, phoneme_per_frame.unsqueeze(-1).expand(-1, -1, D)
         )  # [B, T_max, D]
 
+        # Zero out pad frames (beyond total_durs) — matches training LR
+        frame_mask = torch.arange(T_max, device=device).unsqueeze(0) < total_durs  # [B, T_max]
+        output = output * frame_mask.unsqueeze(-1).float()
+
         return output
 
 
@@ -210,7 +214,7 @@ class FastSpeech2(nn.Module):
 
         # Length regulate
         if durations is None:
-            durations = log_pred_durations.detach().exp().round().clamp(min=0).long()
+            durations = log_pred_durations.detach().exp().round().clamp(min=1).long()
 
         mel_input = self.length_regulator(x, durations)
 
@@ -235,7 +239,6 @@ class FastSpeech2(nn.Module):
         else:
             energy_embed = self.energy_embed(expanded_energies_enc.unsqueeze(-1))
 
-        # Truncate or pad mel_input to match pitch/energy embed
         mel_input = mel_input[:, :T_out] + pitch_embed[:, :T_out] + energy_embed[:, :T_out]
         mel_input = self.pos_enc(mel_input)
 

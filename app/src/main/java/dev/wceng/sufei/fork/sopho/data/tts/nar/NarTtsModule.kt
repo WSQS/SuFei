@@ -13,10 +13,18 @@ import javax.inject.Singleton
 /**
  * Hilt module providing the NAR TTS engine.
  *
- * Model files expected in: /sdcard/SuFei/models/nar/
- * For production: consider split APK or download-on-first-launch.
+ * fork-sopho: Prefers the custom SuFei FS2 (35MB) if available,
+ * falls back to PaddleSpeech FS2 (142MB).
  *
- * Required files:
+ * Model files expected in: externalFilesDir/models/nar/ or /sdcard/SuFei/models/nar/
+ *
+ * SuFei custom model files:
+ *   - fastspeech2_sufei.onnx (~35MB)
+ *   - hifigan_csmsc.onnx (~50MB, shared)
+ *   - phone_id_map.txt (3KB, shared)
+ *   - norm_stats.npz (1KB, mel denormalization)
+ *
+ * PaddleSpeech fallback files:
  *   - fastspeech2_csmsc.onnx (142MB)
  *   - hifigan_csmsc.onnx (50MB)
  *   - phone_id_map.txt (3KB)
@@ -30,7 +38,6 @@ object NarTtsModule {
     fun provideNarOnnxEngine(
         @ApplicationContext context: Context,
     ): NarOnnxEngine {
-        // Initialize G2P dictionary from assets (fork-sopho)
         ChineseG2p.init(context)
 
         val candidates = listOf(
@@ -38,6 +45,16 @@ object NarTtsModule {
             java.io.File(android.os.Environment.getExternalStorageDirectory(), "SuFei/models/nar"),
             java.io.File(context.filesDir, "models/nar"),
         )
+
+        // fork-sopho: prefer SuFei custom model
+        val sufeiDir = candidates.firstOrNull {
+            it.resolve("fastspeech2_sufei.onnx").isFile
+        }
+        if (sufeiDir != null) {
+            return NarOnnxEngine(sufeiDir, cpuThreads = 4, useSuFeiModel = true)
+        }
+
+        // Fallback to PaddleSpeech
         val modelDir = candidates.firstOrNull {
             it.resolve("fastspeech2_csmsc.onnx").isFile
         } ?: context.filesDir.resolve("models/nar")

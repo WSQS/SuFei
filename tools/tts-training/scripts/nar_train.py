@@ -281,7 +281,12 @@ def train(args):
         manifest = Path(args.manifest_override)
         if not manifest.is_absolute():
             manifest = ROOT / args.manifest_override
-        feature_dir = ROOT / "data" / "paddle_distill_features"
+        if args.feature_dir:
+            feature_dir = Path(args.feature_dir)
+            if not feature_dir.is_absolute():
+                feature_dir = ROOT / args.feature_dir
+        else:
+            feature_dir = ROOT / "data" / "paddle_distill_features"
         stats_path = Path(args.stats_override) if args.stats_override else ROOT / "data" / "paddle_distill_norm_stats.json"
         if not stats_path.is_absolute():
             stats_path = ROOT / args.stats_override if args.stats_override else stats_path
@@ -503,16 +508,12 @@ def train(args):
                 energy_exp = length_regulate_batch(
                     energy_p.unsqueeze(-1), pred_durations
                 ).squeeze(-1)
-                mel_input = mel_input + \
-                    model.pitch_embed(pitch_exp[:, :T_out].unsqueeze(-1)) + \
-                    model.energy_embed(energy_exp[:, :T_out].unsqueeze(-1))
+                mel_input = mel_input + model.pitch_embed(pitch_exp[:, :T_out].unsqueeze(-1)) + model.energy_embed(energy_exp[:, :T_out].unsqueeze(-1))
             else:
                 # Validate with GT variance (default)
                 mel_input = length_regulate_batch(x, dur_gt)
                 T_out = mel_input.size(1)
-                mel_input = mel_input + \
-                    model.pitch_embed(f0_norm[:, :T_out].unsqueeze(-1)) + \
-                    model.energy_embed(e_norm[:, :T_out].unsqueeze(-1))
+                mel_input = mel_input + model.pitch_embed(f0_norm[:, :T_out].unsqueeze(-1)) + model.energy_embed(e_norm[:, :T_out].unsqueeze(-1))
             mel_input = model.pos_enc(mel_input)
             dec = mel_input
             for layer in model.decoder_layers:
@@ -663,24 +664,19 @@ def train(args):
                 phone_mask[:, :L_phone],
             )
 
-            # Pitch/energy loss — phoneme-level L1 (no frame-level floor)
-            # Predictor outputs 1 scalar per phoneme, so compare against
-            # phoneme-level mean of GT, not per-frame GT.
-            # This eliminates the irreducible floor from within-phoneme contour.
-            f0_phoneme_gt = pool_to_phoneme(f0_norm, durations_gt, phone_mask)
-            energy_phoneme_gt = pool_to_phoneme(energy_norm, durations_gt, phone_mask)
-
-            L_p = min(pitch_pred_enc.size(1), f0_phoneme_gt.size(1))
+            # Pitch/energy loss — frame-level L1 (classic FS2 recipe)
+            # Compare predicted pitch/energy (expanded to frames via GT dur)
+            # against frame-level GT.
+            T_loss = min(pitch_expanded.size(1), f0_norm.size(1), T_pred)
             pitch_loss = masked_l1_loss(
-                pitch_pred_enc[:, :L_p],
-                f0_phoneme_gt[:, :L_p],
-                phone_mask[:, :L_p],
+                pitch_expanded[:, :T_loss],
+                f0_norm[:, :T_loss],
+                mel_mask[:, :T_loss],
             )
-            L_e = min(energy_pred_enc.size(1), energy_phoneme_gt.size(1))
             energy_loss = masked_l1_loss(
-                energy_pred_enc[:, :L_e],
-                energy_phoneme_gt[:, :L_e],
-                phone_mask[:, :L_e],
+                energy_expanded[:, :T_loss],
+                energy_norm[:, :T_loss],
+                mel_mask[:, :T_loss],
             )
 
             total_loss = W_MEL * mel_loss + W_DUR * dur_loss + W_PITCH * pitch_loss + W_ENERGY * energy_loss
@@ -810,6 +806,7 @@ if __name__ == "__main__":
     parser.add_argument("--decoder_mask", action="store_true", help="Apply mel_mask to decoder self-attention")
     parser.add_argument("--manifest_override", default=None, help="Override manifest path (relative to ROOT or absolute)")
     parser.add_argument("--stats_override", default=None, help="Override norm stats path (relative to ROOT or absolute)")
+    parser.add_argument("--feature_dir", default=None, help="Override feature directory (relative to ROOT or absolute)")
     parser.add_argument("--val_manifest", default=None, help="Validation manifest for periodic mel L1 eval")
     parser.add_argument("--val_interval", type=int, default=100, help="Run validation every N steps")
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")

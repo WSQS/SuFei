@@ -233,19 +233,171 @@ predicted variance 的分布偏移。差异项是 pitch/energy predictor，不�
 - mel loss 在 normalized 域：`nar_train.py:649` — `mel_loss = L1(mel_pred, mel_norm)`
 - predictor 梯度被 detach 切断（duration 路径）：`nar_train.py:608`
 
-### 下一步方案：消除 Decoder Shortcut
+### Scheme D: 交替训练 v4（失败）
 
-头脑风暴了 5 个方案，核心目标都是**结构上阻止 decoder 绕过 pitch/energy embed**：
+`--alternating`：偶数步只训 predictors（无 mel loss），奇数步只训 decoder
+（predictors 在 `no_grad` 下运行，用 pred variance）。
 
-| ��案 | 思路 | 改动量 | 风险 |
-|------|------|--------|------|
-| **A: FiLM** | pitch/energy 预测 decoder 每层的 scale/shift，结构强制依赖 | 中（改 decoder 层） | 低 |
-| **B: 梯度均衡** | 运行时自动平衡各 loss 对 encoder 的梯度范数 | 小（改 loss 计算） | 中（额外 forward） |
-| **C: GRL 解耦** | encoder→decoder 路径加 Gradient Reversal，强制 encoder 忘记 prosody | 小（加一层） | 中（可能过度解耦） |
-| **D: 交替训练** | 奇数步只训 predictors，偶数步只训 decoder | 小（改训练循环） | 低 |
-| **E: 乘性门控** | pitch/energy 做乘性 gate 控制 decoder 信息通量 | 小（改 mel_input） | 低 |
+| 指标 | v2 baseline | v4 alternating |
+|------|------------|----------------|
+| pred-all CER | 77.5% | **95.3%** |
+| val_mel_l1 @ 24k | 0.911 | 0.916 |
 
-优先尝试方案 D（交替训练）——改动最小，不改模型结构，直接切断梯度竞争。
+**失败原因**：梯度解耦切断组件间协作信号，decoder 有效步数减半（12k vs 24k），
+encoder 梯度冲突。代码已 revert。
+
+### Scheme E: 乘性门控 v5（失败）
+
+将 `mel_input = x + pitch_embed + energy_embed` 改为
+`mel_input = x * sigmoid(pitch_embed) * sigmoid(energy_embed)`，
+结构上强制 decoder 依赖 variance embed（sigmoid gate 控制信息通量）。
+
+| 指标 | v2 baseline | v5 mulgate |
+|------|------------|------------|
+| pred-all CER | 77.5% | **83.2%** |
+| val_mel_l1 @ 24k | 0.911 | 0.911 |
+| 100% CER | 2/30 | 3/30 |
+
+**失败原因**：sigmoid 门控将 mel_input 压缩到 [0, x] 范围，丢失了 pitch/energy 的
+加性信息（绝对基频/能量值）。gate 趋近 0.5 附近时信息衰减严重，decoder 收到的
+信号被"稀释"。mel L1 持平但 CER 更差，说明频谱细节进一步模糊。
+
+代码已 revert 回加法。
+
+### Scheme A: FiLM v6（失败）
+
+用 FiLM (Feature-wise Linear Modulation) 替换加性 variance embed。
+pitch/energy embed 经 `film_gen`（2-layer MLP）生成 4 层 decoder 的 γ/β，
+每层后应用 `dec = (1+γ)*dec + β`。Zero-init 保证初始 = 恒等映射。
+
+decoder input **移除**加性 pitch/energy embed，结构强制 decoder 只能通过 FiLM
+调制获取 variance 信息。
+
+| 指标 | v2 baseline | v6 FiLM |
+|------|------------|---------|
+| pred-all CER | 77.5% | **86.5%** |
+| 100% CER | 2/30 | 3/30 |
+| <15% CER | 0/30 | 0/30 |
+| val_mel_l1 @ 24k | 0.911 | 0.911 |
+| model params | 7.6M | 8.2M (+0.6M film_gen) |
+
+**失败原因**：FiLM 的 zero-init γ/β 从恒等映射起步，需要逐步学习调制模式。
+但 mel loss 的梯度优先优化 decoder 层权重本身，film_gen 的梯度信号微弱，
+导致 decoder 在 FiLM 调制成熟之前已经固化为 phoneme-only 推理路径。
+加性 embed 虽然有 shortcut 风险，但它从第一步就注入 variance 信息，
+decoder 被迫在早期建立对 variance 的依赖。
+
+代码已 revert 回加性 embed。
+
+### 结论：Decoder Shortcut 假设被推翻
+
+四个方案（D 交替训练、E 乘性门控、A FiLM、+v3 phoneme-level loss）
+全部失败，没有一个比 v2 additive embed baseline 好：
+
+| 实验 | pred-all CER | vs v2 |
+|------|-------------|-------|
+| **v2 Full E2E (baseline)** | **77.5%** | — |
+| v3 Phoneme-level loss | 84.2% | +6.7pp |
+| v5 Multiplicative gate | 83.2% | +5.7pp |
+| v6 FiLM | 86.5% | +9.0pp |
+| v4 Alternating | 95.3% | +17.8pp |
+
+**核心发现**：decoder shortcut **不是** pred-all CER=77.5% 的瓶颈。
+GT-all=32.1% 证明 decoder 能用好 GT variance，gap 来自 variance predictor
+误差本身（pitch corr=0.40, energy corr=0.26 仍然很低）。
+任何削弱 variance embed 信息注入的改动都会恶化 CER——decoder 需要更多
+variance 信息，而非更"强制"的依赖。
+
+**下一步方向**：放弃 decoder shortcut 线索，转向：
+1. **扩容**：d_model 256→384（匹配 PaddleSpeech），验证容量假设
+2. **改善 variance predictor**：更多数据、更好的 predictor 架构
+3. **归档自研**：锁定 PaddleSpeech ONNX (CER=6.8%) 为生产方案
+
+### Phase 0: 数据管线审计（reviewer 发现三层标签 bug）
+
+外部 review 发现之前的"既定事实"中隐藏了三个数据 bug：
+
+1. **Mel 天花板虚构**（31.8% → 真实 20.2%）：旧管线从 vocoded audio 重新提取 mel
+   （`generate_paddlespeech_distillation_data.py:632`），用 librosa 默认 power=2.0 功率谱，
+   而 HiFiGAN 期望 power=1.0 幅度谱。改用 teacher FS2 直接输出的 mel 后，
+   teacher_mel→HiFiGAN→ASR = **20.2%**（30 首同集对照，6.8% 是不同评测协议的结果）。
+
+2. **F0 时间轴 bug**（2.1x 拉伸）：`nar_extract_features.py:71` 用 `f0[start//256:end//256]`
+   对齐 pyworld F0 到 mel 帧，但 pyworld dio 默认 5ms frame_period → 120 samples/frame（非 256）。
+   F0 标签只用到真实曲线的前 47%，pitch corr=0.40 就是"慢变趋势碰巧相关"的水平。
+
+3. **Duration 标签来自 MFA**（有噪声）：v2 数据的 duration 仍是从 MFA TextGrid 比例缩放来的，
+   分布严重偏态（15.1% dur≤2，max=152 帧），不是 teacher 的确定性输出。
+
+### Phase 1-2: 数据修复 + 经典配方重训（v7-v9）
+
+#### v7: teacher_mel + 修复 F0 hop + 经典 FS2 配方（MFA duration）
+
+替换旧管线三处 bug 后用经典配方训练（GT dur teacher forcing + frame-level pitch/energy loss）。
+
+评估发现 `model.forward()` 的 LengthRegulator 有 pad bug（将超出 total_durs 的帧映射到
+phoneme 0 而非置零），导致 model.forward eval CER=99.4%。
+用训练 forward path 评估后：
+
+| 条件 | CER | 说明 |
+|------|-----|------|
+| 天花板 (teacher_mel→HiFiGAN→ASR) | 20.2% | 同集 30 首 |
+| **B: GT dur + GT var** | **23.5%** | decoder 接近天花板 |
+| **A: GT dur + pred var** | **23.9%** | pitch/energy predictor 几乎无损（F0 修复后） |
+| C: pred-all | 96.9% | duration gap 崩溃 |
+
+GT dur 条件下 CER=23.9%，距天花板仅 3.7pp。pitch/energy predictor 修复 F0 后完全正常工作。
+唯一残余瓶颈是 duration predictor 的 train/inference gap。
+
+#### v8: full_e2e 在干净数据上（MFA duration）
+
+用 `--full_e2e` 训练消除 duration gap。pred-all CER=**56.5%**（0/30 完全崩溃）。
+full_e2e 的帧级错位导致 mel 质量下降（val_mel_l1 0.864 vs v7 的 0.758），
+但 pred-all 从 96.9% 改善到 56.5%。
+
+#### v9: teacher duration 标签 + 经典配方（最终方案）
+
+从 teacher FS2 ONNX 内部提取 duration predictor 输出（通过给 ONNX graph 添加 Round 节点
+作为额外输出）。teacher duration 天然满足 `sum(dur)==mel_frames`，分布均匀（dur≤2: 0%，max=30）。
+
+| | MFA 标签 | Teacher 内部 |
+|---|---|---|
+| median | 6 | **9** |
+| dur≤2 | 15.1% | **0.0%** |
+| max | 152 | **30** |
+
+v9 经典配方训练结果：
+
+| 指标 | v7 (MFA dur) | v9 (teacher dur) |
+|------|-------------|-----------------|
+| mel loss @24k | 0.22 | **0.12** |
+| val_mel_l1 @24k | 0.758 | **0.350** |
+
+三条件评估：
+
+| 条件 | CER | 说明 |
+|------|-----|------|
+| 天花板 | 20.2% | teacher_mel→HiFiGAN→ASR |
+| **A: GT dur + GT var** | **19.9%** | ≈ 天花板 |
+| **B: GT dur + pred var** | **20.1%** | pitch/energy predictor 无损 |
+| **C: pred-all (完全推理)** | **24.0%** | 仅差天花板 3.8pp |
+
+**三层标签 bug 全部修复后，7.6M FS2 pred-all CER=24.0%，8/30 样本 CER<15%。**
+从最初的 77.5%（旧脏数据 full_e2e）改善 53.5pp。
+dur ratio=0.79 仍有轻微偏短（残余 4.1pp gap 的来源）。
+
+### 实验全览（同条件对比）
+
+| 实验 | 数据 | 训练方式 | pred-all CER | 关键变量 |
+|------|------|---------|-------------|---------|
+| v2 | re-extracted mel, F0 bug, MFA dur | full_e2e | 77.5% | 旧管线 baseline |
+| v3 | 同上 | phoneme loss | 84.2% | − |
+| v4 | 同上 | alternating | 95.3% | − |
+| v5 | 同上 | mulgate | 83.2% | − |
+| v6 | 同上 | FiLM | 86.5% | − |
+| v7 | teacher_mel, F0 fixed, MFA dur | classic | 96.9% | dur gap 崩溃 |
+| v8 | 同 v7 | full_e2e | 56.5% | 帧级错位 |
+| **v9** | **teacher_mel, F0 fixed, teacher dur** | **classic** | **24.0%** | **最终方案** |
 
 ### 远程 manifest 损坏发现 + 重训（v2）
 
