@@ -155,11 +155,97 @@ PaddleSpeech 的 ~7%。
 PaddleSpeech FS2（37.3M, d_model=384）在同一管线下达 6.8% CER。
 三个症状都指向欠拟合：动态范围压缩、频谱模糊、L1 ��能量正相关。
 
-### 下一步方向
+### Pitch/Energy Loss 分解���断
 
-1. **预训练初始化**：从 PaddleSpeech FS2 权重 (37.3M, d_model=384) warm-start
-2. **更好的 teacher**：用 CosyVoice 3 生成更高质量诗歌音频
-3. **放弃泛化**：将目标诗全部放入训练集，只优化已知诗的表���
+`diagnose_pitch_loss_decompose.py` 对 v2 checkpoint 做了帧级 loss 的四条件分解：
+
+| 条件 | Pitch L1 | Energy L1 | 说明 |
+|------|---------|----------|------|
+| D: GT dur + predict mean=0 (baseline) | 0.659 | 0.796 | "什么都不预测" |
+| **C: GT dur + GT phoneme mean (FLOOR)** | **0.303** | **0.506** | 理论下限 |
+| B: GT dur + pred pitch (predictor only) | 0.596 | 0.755 | 隔离 predictor 误差 |
+| A: pred dur + pred pitch (TRAINING) | 0.646 | 0.756 | 训练实际条件 |
+
+**Floor 占比**：pitch 57%，energy 67%。帧级 loss 大部分是音素内 contour 变化造成的不可降噪声。
+
+### GT-var vs E2E 对比实验：确认 train/inference gap 是核心问题
+
+`eval_gtvar_train_cer.py` 在 D300fix GT-var checkpoint 上测了三���推理条件：
+
+| 条件 | CER | 说明 |
+|------|-----|------|
+| **A: GT dur + GT pitch/energy** | **32.1%** | ≈ P2 baseline 31.8%，decoder 无容量问题 |
+| B: GT dur + pred pitch/energy | 99.6% | predictor 输出对 decoder 是 OOD |
+| C: pred all | 99.7% | 完全推理条件 |
+
+**关键结论**：decoder 本身没有容量问题。32.1% → 99.7% 的 67pp gap 完全来自
+predicted variance 的分布偏移。差异项是 pitch/energy predictor，不是 decoder 容量。
+
+### Warm-start 实验（失败）
+
+尝试从 D300fix GT-var checkpoint warm-start，freeze decoder 3k steps 训练 predictors，
+然后解冻切换到 `--full_e2e`。
+
+| 模型 | GT-all CER | Pred-all CER | 说明 |
+|------|-----------|-------------|------|
+| D300fix GT-var (baseline) | **32.1%** | 99.7% | decoder 完好，gap = 67pp |
+| Warmstart v2 step24k | **32.1%** | 99.7% | decoder 保住了，但 gap 没缩小 |
+| Full E2E v2 | — | **77.5%** | 最好的 pred-var 结果 |
+
+`nar_train.py` 新增参数：`--warm_start`（重置 step 计数器 + predictors）、
+`--reset_predictors`、`--freeze_steps`、`--full_e2e_steps`（分阶段切换模式）。
+
+**结论**：7.6M decoder 无法同时适应 GT variance 和 pred variance 两种输入分布。
+要么保住 GT 能力（32%），要么适应 pred（77.5%），没有中间态。
+
+### Phoneme-level Loss 实验（v3）
+
+将 pitch/energy loss 从帧级改为音素级，消除 57%/67% 不可降 floor。
+`pool_to_phoneme()` 函数将帧级 GT 按 GT duration 池化为音素级均值，
+再与 predictor 输出做 L1。
+
+| 指标 | v2 (frame loss) | v3 (phoneme loss) |
+|------|----------------|-------------------|
+| pitch loss @ 24k | ~0.53 | **~0.14** (4x 下降) |
+| energy loss @ 24k | ~0.76 | **~0.14** (5x 下降) |
+| train mel L1 @ 24k | 0.345 | 0.358 |
+| val mel L1 @ 24k | 0.911 | 0.920 |
+| **pred-all CER** | **77.5%** | **84.2%** (更差 6.7pp) |
+
+**Pitch/energy loss 大幅下降但 CER 反而恶化。**
+
+### 根因分析：Decoder Shortcut 问题
+
+代码级分析发现 v3 CER 恶化的根因是 **decoder shortcut**：
+
+1. **梯度量级失衡**：phoneme-level loss (~50 音素) 的梯度比 frame-level (~500 帧) 小 10x，
+   mel loss 完全主导 encoder 更新
+2. **Decoder 忽略 pitch/energy embed**：mel loss 通过 `mel_input = x + pitch_embed + energy_embed`
+   回传梯度时，decoder 发现最有效的降 mel loss 方式是直接从 phoneme embedding 推断 mel pattern
+   （"shortcut"），而非利用 pitch/energy embed
+3. **v2 的隐式正则**：frame-level loss 虽然有 floor，但其大梯度强迫 encoder 为 pitch/energy
+   产生有区分度的表征，间接防止了 decoder shortcut
+4. **v3 失去这个正则**：phoneme-level loss 梯度太弱，encoder 不再为 predictor 优化，
+   decoder 走 shortcut → 频谱模糊 → CER 恶化
+
+**代码位置**：
+- 加法叠加：`nar_train.py:637` — `mel_input = mel_input + pitch_embed + energy_embed`
+- mel loss 在 normalized 域：`nar_train.py:649` — `mel_loss = L1(mel_pred, mel_norm)`
+- predictor 梯度被 detach 切断（duration 路径）：`nar_train.py:608`
+
+### 下一步方案：消除 Decoder Shortcut
+
+头脑风暴了 5 个方案，核心目标都是**结构上阻止 decoder 绕过 pitch/energy embed**：
+
+| ��案 | 思路 | 改动量 | 风险 |
+|------|------|--------|------|
+| **A: FiLM** | pitch/energy 预测 decoder 每层的 scale/shift，结构强制依赖 | 中（改 decoder 层） | 低 |
+| **B: 梯度均衡** | 运行时自动平衡各 loss 对 encoder 的梯度范数 | 小（改 loss 计算） | 中（额外 forward） |
+| **C: GRL 解耦** | encoder→decoder 路径加 Gradient Reversal，强制 encoder 忘记 prosody | 小（加一层） | 中（可能过度解耦） |
+| **D: 交替训练** | 奇数步只训 predictors，偶数步只训 decoder | 小（改训练循环） | 低 |
+| **E: 乘性门控** | pitch/energy 做乘性 gate 控制 decoder 信息通量 | 小（改 mel_input） | 低 |
+
+优先尝试方案 D（交替训练）——改动最小，不改模型结构，直接切断梯度竞争。
 
 ### 远程 manifest 损坏发现 + 重训（v2）
 

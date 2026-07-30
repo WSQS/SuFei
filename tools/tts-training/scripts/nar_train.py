@@ -186,6 +186,46 @@ def masked_mse_loss(pred, target, mask):
     return diff.sum() / n_valid
 
 
+def pool_to_phoneme(frame_values, durations, phone_mask):
+    """Pool frame-level values to phoneme-level means (vectorized).
+
+    frame_values: [B, T] (f0_norm or energy_norm)
+    durations: [B, L] int (mel frames per phoneme)
+    phone_mask: [B, L] bool (True=padding)
+
+    Returns: [B, L] phoneme-level mean (0 for unvoiced/padding)
+    """
+    B, L = durations.shape
+    T = frame_values.size(1)
+    device = frame_values.device
+
+    # Build frame-to-phoneme index via cumsum (same as length_regulate_batch)
+    cumdurs = durations.cumsum(dim=1)  # [B, L]
+    frame_idx = torch.arange(T, device=device).unsqueeze(0).expand(B, T)  # [B, T]
+    phoneme_per_frame = (
+        (cumdurs.unsqueeze(2) > frame_idx.unsqueeze(1))  # [B, L, T]
+        .float()
+        .argmax(dim=1)  # [B, T]
+    ).clamp(max=L - 1)
+
+    # Mask out frames beyond total duration
+    total_durs = durations.sum(dim=1, keepdim=True)  # [B, 1]
+    valid_frame = (frame_idx < total_durs).float()  # [B, T]
+
+    # Scatter-sum: for each phoneme, sum its frame values
+    # Use one-hot expand: [B, T, L] → no, too much memory for large T/L
+    # Instead use index_add_ per batch (still a Python loop but no .item())
+    result = torch.zeros(B, L, device=device, dtype=frame_values.dtype)
+    counts = torch.zeros(B, L, device=device, dtype=frame_values.dtype)
+    for b in range(B):
+        # segment_sum[b, l] = sum of frame_values[b, t] where phoneme_per_frame[b, t] == l
+        result[b].index_add_(0, phoneme_per_frame[b], frame_values[b] * valid_frame[b])
+        counts[b].index_add_(0, phoneme_per_frame[b], valid_frame[b])
+
+    counts = counts.clamp(min=1)
+    return result / counts
+
+
 # ─── Length Regulator (batch, with padding) ────────────────────────────
 
 def length_regulate_batch(x, durations):
@@ -346,8 +386,17 @@ def train(args):
     if args.resume:
         ckpt = torch.load(str(args.resume), map_location=device, weights_only=False)
         model.load_state_dict(ckpt["model"])
-        start_step = ckpt.get("step", 0)
-        print(f"Resumed from {args.resume} (step {start_step})")
+        if not args.warm_start:
+            start_step = ckpt.get("step", 0)
+        else:
+            # Reset predictors so they can learn from scratch
+            if args.reset_predictors or True:  # Always reset for warm-start
+                mean_log_dur_actual = mean_log_dur
+                model.duration_predictor.init_bias(mean_log_dur_actual)
+                model.pitch_predictor.init_bias(0.0)
+                model.energy_predictor.init_bias(0.0)
+                print(f"  Warm-start: reset all 3 variance predictors")
+        print(f"Resumed from {args.resume} (warm_start={args.warm_start}, step counter={start_step})")
         if args.reset_dur_bias:
             model.duration_predictor.init_bias(mean_log_dur)
             print(f"  Reset duration predictor bias to {mean_log_dur:.3f}")
@@ -402,6 +451,10 @@ def train(args):
             "distill": args.distill,
             "gt_variance": args.gt_variance,
             "full_e2e": args.full_e2e,
+            "warm_start": args.warm_start,
+            "reset_predictors": args.reset_predictors,
+            "freeze_steps": args.freeze_steps,
+            "full_e2e_steps": args.full_e2e_steps,
         },
     )
 
@@ -436,7 +489,7 @@ def train(args):
             for layer in model.encoder_layers:
                 x = layer(x)
 
-            if args.full_e2e:
+            if args.full_e2e or args.full_e2e_steps > 0:
                 # Validate with predicted variance (matches training)
                 log_dur = model.duration_predictor(x)
                 pitch_p = model.pitch_predictor(x)
@@ -477,8 +530,23 @@ def train(args):
     epoch = start_step * args.batch_size // len(dataset)
     t_start = time.time()
 
+    # Freeze logic: train only predictors for first freeze_steps
+    if args.freeze_steps > 0:
+        freeze_params = set()
+        for name, param in model.named_parameters():
+            if not any(p in name for p in ["duration_predictor", "pitch_predictor", "energy_predictor"]):
+                param.requires_grad = False
+                freeze_params.add(name)
+        print(f"FREEZE: {len(freeze_params)} param tensors frozen (encoder+decoder+embeds), training only predictors")
+
     while step < args.steps:
         epoch += 1
+
+        # Unfreeze after freeze_steps
+        if args.freeze_steps > 0 and step == args.freeze_steps:
+            for name, param in model.named_parameters():
+                param.requires_grad = True
+            print(f"  >> UNFREEZE at step {step}: all parameters trainable")
         for batch in loader:
             if step >= args.steps:
                 break
@@ -516,6 +584,11 @@ def train(args):
             pitch_pred_enc = model.pitch_predictor(x)
             energy_pred_enc = model.energy_predictor(x)
 
+            # Determine mode for this step (phased training)
+            use_full_e2e = args.full_e2e
+            if args.full_e2e_steps > 0:
+                use_full_e2e = step >= args.full_e2e_steps
+
             if args.gt_variance:
                 # B' mode: use GT durations + GT pitch/energy, detach predictors
                 mel_input = length_regulate_batch(x, durations_gt)
@@ -529,7 +602,7 @@ def train(args):
                 log_dur_pred = log_dur_pred.detach()
                 pitch_pred_enc = pitch_pred_enc.detach()
                 energy_pred_enc = energy_pred_enc.detach()
-            elif args.full_e2e:
+            elif use_full_e2e:
                 # Full E2E: use PREDICTED durations + predicted pitch/energy
                 # This eliminates the train/inference gap completely
                 pred_durations = log_dur_pred.detach().exp().round().clamp(min=1).long()
@@ -590,40 +663,25 @@ def train(args):
                 phone_mask[:, :L_phone],
             )
 
-            # Pitch/energy loss — compare predictor output vs GT
-            if args.gt_variance:
-                # Predictors are detached; expand predictions to mel domain for comparison
-                pitch_pred_exp = length_regulate_batch(
-                    pitch_pred_enc.unsqueeze(-1), durations_gt
-                ).squeeze(-1)
-                energy_pred_exp = length_regulate_batch(
-                    energy_pred_enc.unsqueeze(-1), durations_gt
-                ).squeeze(-1)
-                T_pitch = min(pitch_pred_exp.size(1), f0_norm.size(1))
-                pitch_loss = masked_l1_loss(
-                    pitch_pred_exp[:, :T_pitch],
-                    f0_norm[:, :T_pitch],
-                    mel_mask[:, :T_pitch],
-                )
-                T_energy = min(energy_pred_exp.size(1), energy_norm.size(1))
-                energy_loss = masked_l1_loss(
-                    energy_pred_exp[:, :T_energy],
-                    energy_norm[:, :T_energy],
-                    mel_mask[:, :T_energy],
-                )
-            else:
-                T_pitch = min(pitch_expanded.size(1), f0_norm.size(1))
-                pitch_loss = masked_l1_loss(
-                    pitch_expanded[:, :T_pitch],
-                    f0_norm[:, :T_pitch],
-                    mel_mask[:, :T_pitch],
-                )
-                T_energy = min(energy_expanded.size(1), energy_norm.size(1))
-                energy_loss = masked_l1_loss(
-                    energy_expanded[:, :T_energy],
-                    energy_norm[:, :T_energy],
-                    mel_mask[:, :T_energy],
-                )
+            # Pitch/energy loss — phoneme-level L1 (no frame-level floor)
+            # Predictor outputs 1 scalar per phoneme, so compare against
+            # phoneme-level mean of GT, not per-frame GT.
+            # This eliminates the irreducible floor from within-phoneme contour.
+            f0_phoneme_gt = pool_to_phoneme(f0_norm, durations_gt, phone_mask)
+            energy_phoneme_gt = pool_to_phoneme(energy_norm, durations_gt, phone_mask)
+
+            L_p = min(pitch_pred_enc.size(1), f0_phoneme_gt.size(1))
+            pitch_loss = masked_l1_loss(
+                pitch_pred_enc[:, :L_p],
+                f0_phoneme_gt[:, :L_p],
+                phone_mask[:, :L_p],
+            )
+            L_e = min(energy_pred_enc.size(1), energy_phoneme_gt.size(1))
+            energy_loss = masked_l1_loss(
+                energy_pred_enc[:, :L_e],
+                energy_phoneme_gt[:, :L_e],
+                phone_mask[:, :L_e],
+            )
 
             total_loss = W_MEL * mel_loss + W_DUR * dur_loss + W_PITCH * pitch_loss + W_ENERGY * energy_loss
             total_loss.backward()
@@ -735,6 +793,14 @@ if __name__ == "__main__":
     parser.add_argument("--w_energy", type=float, default=1.0)
     parser.add_argument("--resume", default=None, help="Resume from checkpoint path")
     parser.add_argument("--reset_dur_bias", action="store_true", help="Re-init duration predictor bias on resume")
+    parser.add_argument("--warm_start", action="store_true",
+                        help="Warm-start: resume weights but reset step counter and predictors")
+    parser.add_argument("--reset_predictors", action="store_true",
+                        help="Re-init duration/pitch/energy predictors (for warm-start from gt-var model)")
+    parser.add_argument("--freeze_steps", type=int, default=0,
+                        help="Freeze encoder+decoder for first N steps, train only predictors")
+    parser.add_argument("--full_e2e_steps", type=int, default=0,
+                        help="Switch to full_e2e mode after N steps (before that, use GT dur + pred var)")
     parser.add_argument("--wandb_project", default="sufei-tts", help="WandB project name")
     parser.add_argument("--wandb_name", default=None, help="WandB run name")
     parser.add_argument("--distill", action="store_true", help="Use PaddleSpeech distillation data")
