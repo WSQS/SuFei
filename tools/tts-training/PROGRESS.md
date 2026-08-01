@@ -4,11 +4,16 @@
 
 ## 当前生产方案
 
-**PaddleSpeech FS2 ONNX + HiFi-GAN ONNX**（ADR-0007）
+**SuFei FS2 ONNX (7.6M) + HiFi-GAN ONNX**（ADR-0007 + 自研蒸馏）
 
-- CER = 6.8%，确定性推理，无早停/重复
-- FS2 (142MB) + HiFi-GAN (50MB) = 192MB，用户通过 ADB 推送
-- Kotlin G2P 端侧实现，268 音素词汇表
+- pred-all CER = 24.0%（train），21.5%（holdout），teacher 天花板 20.2%
+- ONNX E2E CER = 24.0%（与 PyTorch 零差距）
+- FS2 (35MB) + HiFi-GAN (50MB) = **85MB 总计**（vs PaddleSpeech 192MB）
+- 已部署验证：Lenovo TB-Q706F (Android 13)，G2P→FS2→HiFiGAN→AudioTrack 全链路跑通
+- 模型路径：`getExternalFilesDir/models/nar/`（app 私有目录，无需存储权限）
+- Kotlin G2P 端���实现，268 音素词汇表
+
+**历史方案**：PaddleSpeech FS2 (142MB, CER=6.8%) 作为 fallback 保留在代码中。
 
 ## 研究实验：从零训练 FS2
 
@@ -386,18 +391,496 @@ v9 经典配方训练结果：
 从最初的 77.5%（旧脏数据 full_e2e）改善 53.5pp。
 dur ratio=0.79 仍有轻微偏短（残余 4.1pp gap 的来源）。
 
+### MAS Duration Learning（ADR-0009）：解耦 duration 外部依赖
+
+**动机**：v9 的 duration 标签来自 teacher (PaddleSpeech FS2 ONNX) 内部导出，
+数据源被锁死在 teacher 上。MAS (Monotonic Alignment Search) 把对齐从
+"预处理步骤"变成"训练副产品"，只用 (音素序列, mel) 就能自动学出单调对齐。
+
+架构：FS2 encoder 输出 + mel target 各经一个投影层 (256→128) 映射到共享空间，
+计算 cost matrix → MAS DP 找最优单调对齐 → 硬整数 duration。
+推理时投影层+MAS 全部丢弃，模型结构与 v9 完全一致。
+
+#### M1：MAS 对齐质量验证（frozen v9 encoder）
+
+`eval_mas_alignment.py`：用 v9 frozen encoder + 可训练投影层，验证 MAS dur
+与 teacher dur 的相关性。
+
+| 指标 | Random projections | Trained (2k steps) |
+|------|-------------------|--------------------|
+| Train per-sample corr | -0.070 | **0.589** |
+| Holdout per-sample corr | -0.031 | **0.590** |
+| MAS dur ratio (MAS/GT) | 1.000 | 1.000 |
+| MAS dur≤2 | 49.4% | 4.7% (teacher: 0%) |
+
+**判定：MARGINAL**（corr=0.59 < 0.7 阈值）。但 frozen encoder 从未为 alignment
+优化过，0.59 是"碰巧能对齐"的水平。M2 联合训练后 corr 应提升。
+
+#### v10a：MAS dur 展开 mel（失败 — duration 坍缩）
+
+`nar_train_align.py` v1：Phase 1 (0-2k) teacher dur warmup，Phase 2 (2k+) MAS dur
+用于 mel 展开 + dur predictor target。
+
+| 指标 | v9 | v10a step8k |
+|------|-----|------------|
+| Train CER | 24.0% | **95.5%** |
+| Holdout CER | 21.5% | **98.4%** |
+| dur ratio (pred/teacher) | 0.79 | **0.201** |
+
+**失败根因**：MAS dur 同时用于 mel 展开和 dur predictor target，形成正反馈。
+推理时 dur predictor 输出坍缩到 teacher 的 20%，音频极度加速，ASR 全部失败。
+训练日志中 dur_loss 看着很低（~0.01），但那是因为 MAS dur 和 pred dur
+坍缩到了同一个短分布。
+
+#### v10b：pred dur 展开 mel（失败 — 损失帧错位）
+
+修复尝试：Phase 2 改用 **pred_dur** 展开 mel，MAS dur 只做 dur_loss target。
+
+**失败根因**（step 9850 被终止）：pred-dur 展开使 mel/pitch/energy 三个损失
+全部帧错位（full_e2e 的 H4 问题重现）。mel 卡在 0.25 平台（v9 是 0.15），
+pitch/energy 从 0.33/0.42 涨到 0.60/0.65——错位噪声地板，不会恢复。
+治标不治本：v10a 的病根是对齐坍缩，不是展开源。
+
+**附带发现**：重启的运行 0 字节日志秒崩 = conda 环境 libiomp5md.dll 重复
+（OMP Error #15），`set KMP_DUPLICATE_LIB_OK=TRUE` 规避。
+
+#### v10c：先验 + forward-sum（部分有效 — 暴露双稳态）
+
+按 RAD-TTS/FastPitch 配方加入 beta-binomial 对角先验（仅 DP 搜索）+
+CTC forward-sum 损失，Phase 2 改回 **MAS-dur 展开**（总和恰=T，损失无错位）。
+
+三次运行三种命运（fsum 平台 2.6 / 7.5 / 13），对齐优化是双稳态、
+初始化运气主导：
+
+| 运行 | 配置 | fsum@1k | pct_le2 | 结局 |
+|------|------|---------|---------|------|
+| 冒烟 1200 步 | 联合训练 | 2.6 | 0.05 | 运气好，收敛 |
+| j240 全量 | 联合训练 | 7.5 | 0.72 | 坍缩（fsum 大梯度冲乱 encoder，mel 0.12→0.44） |
+| j241 全量 | x.detach() + seed | 12.6 | 0.88 | 更差：两个裸线性投影在冻结特征上容量不足 |
+
+**诊断**：联合训练时 encoder 被 fsum 重塑提供了 aligner 缺的容量（代价是
+encoder 受损 + 看运气）；detach 保护了 encoder（mel 稳定 0.17）但裸线性
+投影学不动。与 NeMo AlignmentEncoder 对照发现两处关键偏差 → v10d。
+
+#### v10d：NeMo 式 aligner + 先验入 softmax + 相位闸门（训练中）
+
+1. **Aligner 换卷积栈 + L2 距离得分**（temperature 5e-4，展开式省显存）——
+   容量放进 aligner 自身，encoder 保持 detach 保护；
+2. **先验加进 softmax 内部**——forward-sum/path-NLL/DP 三者共享同一份
+   先验塑形分布（v10c 只给 DP，CTC 对原始偏斜得分自锁）；
+3. **相位闸门**：`ema_pct_le2 < 0.20` 才切 MAS 展开，aligner 不健康时
+   decoder 永远停留在安全的 teacher-dur warmup 模式。
+
+结果（j242, seed 42, 24k 步, 121.7 min）：训练全程稳定——fsum 1.2→0.76，
+闸门 step 2052 打开，MAS 相位 mel 瞬态 0.57 后回落至 0.128（v9=0.125），
+pct_le2 收敛到 0.013，dur_corr 随训练自发升至 ~0.45。
+**首个健康完赛的 MAS 版本。**
+
+#### v10d 评估 + duration scale 补偿（2×2 对照）
+
+| 模型 | Train CER | Holdout CER |
+|------|-----------|-------------|
+| teacher 天花板 | ~20.2% | — |
+| v9 原始 | 24.0% | 21.5% |
+| **v9 + dur×1.27** | **20.3%** | **19.4%** ← 全局最优 |
+| v10d 原始 | 29.3% | 30.2% |
+| v10d + dur×1.25 | 20.7% | 24.6% |
+
+**发现 1**：dur ratio 0.79/0.80 的系统性偏短是 v9/v10 共同的主要 CER
+贡献者——×1.27 补偿实验证明了这一点（v9: 24.0→20.3 / 21.5→19.4，双双
+打到天花板）。根因有二：① log 域 L1 的最优解是 log 中位数（≈几何均值），
+对右偏的时长分布系统性低估总和（高方差的停顿位置被拉向几何均值）；
+② 训练目标 clamp(max=100) 截断——数据 66.7% 帧是静音，长停顿动辄
+200-300 帧，predictor 学到的世界里停顿最长 100 帧。
+**决定（2026-07-31）**：×1.27 是治标（均匀缩放拉长普通音节、极长停顿
+仍不足），不落地生产；按根因修复立项——显式停顿建模（韵律边界 token +
+停顿单独预测，与 M3 韵律工作合并），辅以移除截断/换损失域的对照实验。
+
+**发现 2（M2 裁决）**：公平对比（双方补偿后）train 平价（20.7 vs 20.3），
+holdout 差 5.2pp——MAS 标签独立性的当前溢价，纯粹来自对齐质量的泛化。
+对症实验 v10f：align_warmup 4000（aligner 成熟再开闸）+ 30k 步。
+
+#### v10e：MAS 训练提速 16.4x
+
+v9=24.3 step/s vs v10=3.2 step/s（慢 7.6x）根因：`maximum_path_np` 纯
+Python 逐格双循环（~64 万次迭代/步）+ 每步 8 次 GPU 同步。修复：DP 改为
+按帧扫描、音素维 numpy 向量化（51.3ms→3.1ms，16.4x，20 组随机矩阵路径
+逐位等价）+ log_prob 批量一次 .cpu()。无新依赖，训练期 only。
+
+### 下一步方向（更新 2026-07-31，M2 达成后）
+
+1. **Duration 偏短根因修复**（不采用 ×1.27 落袋）：显式停顿/韵律边界
+   token 建模（停顿不再靠 predictor 从音素上下文猜），对照实验：移除
+   clamp(max=100)、损失域调整。与 M3 韵律工作合并推进
+2. **M3 数据源解锁**：用 v10f 配方接入 CosyVoice / 真人朗读音频
+   （生成 → ASR 门控 + best-of-N 选优 → MAS 自动对齐训练），
+   无需任何外部对齐工具——韵律超越 teacher 的正式起点
+3. **工程遗留**：checkpoint 文件名加 run 名（防覆盖）；fsum 的 8 次
+   CTC 调用批量化（10.7 → 预计 15+ step/s）
+
+### M3 Phase 0：CosyVoice3 数据源冒烟（2026-07-31）
+
+10 首诗（5 holdout + 5 train）× 2 风格，WSL Ubuntu 本机 GPU 生成
+（Fun-CosyVoice3-0.5B，统一 prompt 约定 `指令<|endofprompt|>转写`），
+rtx 评估。脚本：`m3_gen_cosyvoice.py` / `m3_phase0_assess.py` /
+`m3_mel_calibration.py`。
+
+**Mel 提取惯例校准（一次性、永久有效）**：teacher 原生 mel → HiFiGAN →
+音频 → 五种候选惯例提取回比。胜者 **power=1 + log10 + eps 1e-10**
+（raw L1=0.102，仿射 a=0.982/b≈0 恒等）；旧 extract_mel（power=2+ln）
+L1=4.44 差 43 倍，其拟合系数 0.228≈1/(2·ln10) 完全解释了历史 31.8%
+天花板。此惯例自此为一切外部音源的标准提取。
+
+**评估结果（20/20 生成成功，0 条 100% CER）**：
+
+| 变体 | direct CER | ceiling CER（校准提取→HiFiGAN） |
+|------|-----------|-------------------------------|
+| plain | 18% | 17% |
+| recite | 20% | 20% |
+
+**发现 1（Phase 1 绿灯）**：ceiling ≈ direct（±3pp 内，常常相等）——
+校准惯例下，跨说话人（CosyVoice 声音 ≠ 标贝）过 HiFiGAN CSMSC 的
+声码损失≈0。**M3 训练可直接复用现有目标空间与 vocoder，无需微调。**
+
+**发现 2**：direct 18-20% ≈ teacher 音频在同协议下的水平（~20%），
+逐首方差大（3%-34%）→ best-of-N 选优有确定价值。
+
+**发现 3（待听感裁决）**：recite 指令没有如预期放慢语速——反而普遍
+更短（如 12.96s→9.40s），CER 均值略差。指令措辞需迭代，风格效果
+以人耳判断为准（wav 留存 `data/m3_cosyvoice_phase0/`）。
+
+### M3 Phase 1：CosyVoice 数据全管线 + 冷启动训练（2026-07-31）
+
+管线全链路一次跑通：320 首（300 train + 20 holdout）× 2 候选 WSL 本机
+生成（640/640 成功）→ rtx best-of-N ASR 选优 + CER≤45% 门控（320/320
+全过）→ 校准惯例特征提取（mel/f0/energy，f0 用 pyworld
+frame_period=12.5ms 原生帧率，无重采样）→ **冷启动** MAS 训练
+（`--cold_start`：闸门关闭期只训 align+fsum+dur，闸门 open 后全量——
+teacher duration 零依赖，49.5 min 完赛）。checkpoint: `m3_v1_final.pt`。
+
+| 模型 | Train CER | Holdout CER | dur ratio |
+|------|-----------|-------------|-----------|
+| CosyVoice 直读 floor | ~18-20% | — | — |
+| m3_v1 原始 | 32.7% | 34.3% | **0.789** |
+| m3_v1 + dur×1.27（诊断） | **19.4%** | 28.7% | — |
+| 参照：v9 原始 | 24.0% | 21.5% | 0.79 |
+| 参照：v10f + ×1.25 | 20.7% | 22.6% | 0.80 |
+
+**发现 1（管线验证 ✅）**：×1.27 补偿后 Train 19.4% 直接落到 CosyVoice
+直读 floor（18-20%）——新声源 + 校准提取 + 冷启动 MAS + 零外部标签的
+全链路成立，训练/提取侧没有额外损失。
+
+**发现 2（偏短跨源三连）**：dur ratio 0.789 与 teacher-dur 线 (0.79)、
+MAS 标贝线 (0.80) 完全一致——偏短与数据源/对齐方式无关，纯粹是训练目标
+问题（log-L1 几何均值偏差 + clamp(max=100) 截断，见上文根因分析）。
+M3 线生产化被 #7 根因修复阻塞：raw 32.7/34.3 不可部署，×1.27 不落地。
+
+**发现 3（泛化差距）**：补偿后 holdout 28.7% vs train 19.4%
+（gap 9.3pp；v10f 仅 1.9pp）——CosyVoice 单次采样的音色/韵律方差
+远大于确定性 teacher + 对齐泛化不足。数据扩容（生成近乎免费）是
+对症杠杆。
+
+**待办**：听感裁决——M3 立项动机是韵律，CER 只是底线。wav 在 rtx
+`output/m3_v1_eval/`（原始）与 `output/m3_v1_eval_s127/`（×1.27），
+已拷回本地 `data/`。
+
+### #7 Duration 偏短根因修复（2026-08-01，迭代中）
+
+修复形态收敛为「**去 clamp + 时长总和一致性损失**」而非新增停顿 token——
+标点在 G2P 里本就有专用音素（"，""。""？""！"各占一个 phone id），MAS
+会把静音段分给它们，缺的只是让 predictor 能学到长时长的训练目标。
+
+`nar_train_align.py` 新增：`--dur_clamp_max`（≤0 去上界截断）、
+`--w_dursum`（`|Σexp(log_dur)−T|/T`，对 log_dur 的梯度权重是
+exp(log_dur)，自动集中于最长 token 即停顿）、`--run_name`
+（checkpoint 防覆盖，还掉工程债）。实现走 opencode ns-glm/glm-5.1，
+spec 见 `M3_DURFIX_SPEC.md`。
+
+| 运行 | 配置 | eval ratio | 零补偿 CER (T/H) | 补偿后 CER |
+|------|------|-----------|-----------------|-----------|
+| m3_v1 | clamp100，无 dursum | 0.789 | 32.7 / 34.3 | ×1.27 → 19.4 / 28.7 |
+| m3_v2 | 去 clamp + w=0.1 | 0.803 | 32.9 / 35.6 | ×1.25 → 19.3 / 27.0 |
+| m3_v3 | w=0.5 | 0.843 | 31.2 / 32.6 | — |
+| **m3_v4** | **+ dropout-free 损失** | **0.994** | **21.6 / 30.3** | 无需补偿 |
+| **m3_v5** | **+ w_dur_linear 0.03 + 1003 首** | **1.003** | **19.9 / 22.6** | 无需补偿 |
+
+**裁决（2026-08-01）**：#7 根因修复达成——ratio 0.79→0.994，零补偿
+CER 32.7/34.3→21.6/30.3，×1.27 权宜正式退场。训练末端 pred_ratio
+0.99-1.01、dursum≈0.01，且 dur/mel 损失与前版持平（sum 一致性没有
+牺牲逐音素拟合）。
+
+**遗留观察**：m3_v4 零补偿(21.6/30.3) 与均匀缩放诊断上限
+（m3_v2×1.25: 19.3/27.0）尚差 ~2-3pp——总时长已对，但**质量分布**
+可能过度集中在停顿（exp 加权把缺口全给了最长 token，普通音节仍偏快）。
+候选精修：sum 损失的 per-token 梯度上限调低（如 clamp 5.0≈148 帧），
+迫使质量向中等音节摊薄。优先级低于数据扩容（holdout gap 8.7pp 才是
+主要矛盾）。
+
+**教训 1（拔河权重）**：w=0.1 恰好在停顿 token 上与 log-L1 梯度打平
+（平衡点 w≈0.08），只推动 +0.014；w=0.5 在停顿上 6 倍胜出、普通音节
+仍被 L1 锚住——选择性正确，ratio 推到 0.84。
+
+**教训 2（Jensen 通胀，两次上当）**：train-mode dropout 使
+E[exp(x+ε)] > exp(E[x])，噪声和比确定性和虚高 ~10%。第一次：训练日志
+pred_ratio 显示 0.91 而 eval 实测 0.803（指标改为 eval-mode 重算修复）；
+第二次：**dursum 损失本身也作用在噪声和上**——把虚高的和优化到 T，
+确定性和就永远停在短 ~10% 的均衡点（m3_v3 停滞 0.84 的根因）。修复：
+损失改为对 duration predictor 做 eval-mode 确定性第二前向（带梯度，
+L1 保留 train-mode 当正则）→ m3_v4。
+
+### 王字复读诊断：dursum 质量集中的可听化实证（2026-08-01）
+
+用户报告 m3_v4 合成的 poem_0027 中「唐代·王维」的王字复读。诊断链：
+
+1. **跨版本 ASR A/B**（`diag_asr_0027_v2.py`）：c0 源音频、m3_v1 raw、
+   m3_v1×1.27 全部单王，仅 m3_v4 复读 → 回归隔离到 v4 的时长目标改动；
+2. **逐音素时长导出**（`diag_dur_0027.py`，v1 vs v4）：全诗总和
+   845→1067（目标 1063，sum 修复 ✓），但「·」映射的 "。" 音素
+   5.8→**14.6 帧**、uang2（王）29.8→**37.6 帧**（0.47s）、uei2（维）
+   21.9→30.3；
+3. **源音频事实**：c0 连读「唐代王维」，· 处无停顿；训练时 MAS 把该
+   "。" 挤在浊音区 → decoder 学到的停顿音素声学混入浊音成分。
+
+**机制**：dursum 梯度 ∝ exp(log_dur) 把补回的时长质量堆到停顿与长元音；
+推理时在源音频连读处插入 ~0.18s 停顿 + 0.47s 超长王 → 停顿段渲染出
+王色彩浊音 + 重起音，听感即「王王维」。log-L1 无力抵抗：
+log(37.6/29.8)=0.23 与短音素 4→5 帧同价。#7 的「遗留观察」由此从
+低优先级升级为需修复项。
+
+**修复（已实现，待 m3_v5 验证）**：`M3_DURFIX_SPEC.md` Addendum 3，
+新增 `--w_dur_linear`——对确定性前向的 exp(log_dur) 帧域 smooth L1
+（beta=2.0）锚到 MAS 目标，长 token 超 8 帧的代价是短 token 超 1 帧的
+8 倍，迫使 sum 修正按比例摊薄。默认 0 位级不变；梯度平衡估算
+w=0.03 在 30 帧 token 上与 dursum(0.5) 推力同阶。opencode 实现
+（j289），已审查 + py_compile + 同步 rtx。
+
+### 王字复读根因二段：「·」映射句号 token 的数据 bug（2026-08-01，m3_v6）
+
+m3_v5 验证结果：**线性锚达成了它的目标但复读仍在**——uang2 回落到
+28.8 帧（v1 水平），可 ASR 依旧「王王维」，且「·」对应的 "。" 反而
+17.3 帧。说明这不是时长分布问题，而是**转写与音频不符**：
+
+- 训练文本统一为「标题，朝代·作者。正文」，G2P 把 "·" 归一化成 "。"
+  音素（`PUNCT_TO_PHONE`）；
+- CosyVoice 朗读「唐代·王维」是**连读无停顿**的，MAS 只能把这个 "。"
+  挤到浊音帧上——**全语料 1003 首每首 1-2 处**，句号音素的声学被系统性
+  掺入浊音；
+- 推理时 predictor 按语料统计（真句尾长停顿为主）给这个 "。" ~17 帧
+  「停顿」，其被污染的声学在王字前渲染出浊音重起音 → 复读。
+- v1 没复读只是因为 clamp+log-L1 把所有停顿都预测过短（5.8 帧），
+  bug 被另一个 bug 掩盖了。v9 老管线不受影响：teacher 音频是照 "。"
+  真停顿朗读的，token 与音频一致。
+
+**修复（m3_v6）**：忠实转写——"·" 不产生任何音素 token。
+`text_to_phonemes` 加 `punct_map` 参数（默认不变，v9 线不动）；
+`m3_fix_dot_token.py` 对三份 manifest 做位置删除（G2P 重生成 1323/1323
+与现存 ids 完全一致，验证可复现后按 "·" 字符位删 token，durations
+按比例重算）：m3p2b_train（1003，删 1 token×925 + 2×78）、
+m3p2b_holdout（20）、m3b_train（300，评估可比性用）。特征/归一化
+统计为纯 wav 派生，全部复用。m3_v6 = m3_v5 配方仅换 manifest。
+注意：部署时 app 侧 G2P 需同步「·→无 token」约定（或保留 ·→。，
+届时会渲染成干净停顿而非浊音伪影，属可接受风格差异）。
+
+**m3_v6 结果（2026-08-01）**：
+
+| 模型（零补偿） | Train CER | Holdout CER | Gap |
+|------|-----------|-------------|-----|
+| m3_v5 | 19.9% | 22.6% | 2.7pp |
+| **m3_v6（去 · token）** | **20.6%** | **21.0%** | **0.4pp** |
+| 参照：v9 原始（生产） | 24.0% | 21.5% | −2.5pp |
+
+- **复读根除**：0027 序列中 代/王 之间无 token，原 "。" 的 ~17 帧被
+  MAS 归还给 代（d 3.7→15.3、ai4 15.6→23.1），王/维 28.4/31.8 不变，
+  ASR 单王 ✓。真句尾停顿质量回位（新。：v5 错堆 in1=37.1/。=8.6，
+  v6 为 in1=7.6/。=33.5）。
+- **Holdout 21.0% 首超生产 v9（21.5）**，train 领先 4.1→3.4pp，泛化
+  差距归零（0.4pp）——假停顿 token 的声学污染是系统性伤害，删除后
+  holdout 再降 1.6pp。已进入 CosyVoice 直读 floor（18-20%）邻域。
+- **M3 Phase 2 达成**：零外部时长标签 + 零推理补偿 + 全自动数据管线，
+  两项 CER 指标均优于生产 v9。checkpoint: `m3_v6_final.pt`；
+  评估音频已拷回本地 `data/m3_v6_eval/`（50 wav），待听感裁决
+  （M3 立项动机是韵律，CER 只是底线）。后续里程碑：ONNX 导出 +
+  fp16 + APK 内嵌（部署方案已评审，见 deployment 计划）。
+
+### M3 Phase 2：数据扩容 320→1050 首 + m3_v5（2026-08-01）
+
+- 选诗 `m3_select_phase2.py`：114,395 首过滤池 → 750 首新诗
+  （唐宋、20-120 字、字符集/句末约束、对 phase1 去重 20,870 首），
+  38,928 字 ≈ 227 分钟目标音频，G2P 零丢弃。
+- **双机生成**（各 375 首 × 2 候选）：rtx 原生 conda 环境 1h32m
+  完成（RTF≈0.43），本地 WSL 2h56m——4090 快 2 倍。两侧均
+  n_fail=0，共 1500 wav ≈ 5.9h 音频。
+- rtx CosyVoice 环境全程 opencode + 3 轮调试落库 `rtx_setup/`
+  （Windows pip 三坑：openai-whisper 需 setuptools<81 +
+  no-build-isolation；piper-phonemize 无 Windows 发行版；cmd2 3.5.1
+  的 rich>=15 冲突 → 整组 Optuna 遗留剔除），可复现。
+- prep（j291，12 min）：1070 首候选 → **1023 过门控**（max_cer=0.45，
+  47 首全是 p2 新诗，phase-2 淘汰率 6.3%；phase-1 320 首全保留）。
+  Train 1003 + Holdout 20（沿用固定 holdout_20_manifest_v3，与全部
+  历史评估可比）。特征 .npz × 1023，norm stats 仅 train split。
+  首跑 j290 因 rtx 上 `m3_prep_features.py` 陈旧（不识别
+  `--extra_manifest`）exit 2，同步脚本后重跑即过。
+- **m3_v5**（j292，54.6 min，30k 步 / 250 epochs @9.2 step/s）：
+  m3_v4 配方 + 新数据 + `--w_dur_linear 0.03`（warm start v10f）。
+  durlin 未加权值 2-3.8（前 2k 步）→ 0.4-1.0（尾部），×0.03 后与
+  dursum 项同量级，权重标定一次通过；pred_ratio 全程 0.98-1.03。
+
+| 模型（零补偿） | Train CER | Holdout CER | Gap | dur ratio |
+|------|-----------|-------------|-----|-----------|
+| m3_v4（300 首） | 21.6% | 30.3% | 8.7pp | 0.994 |
+| **m3_v5（1003 首）** | **19.9%** | **22.6%** | **2.7pp** | **1.003** |
+| 参照：v9 原始（生产） | 24.0% | 21.5% | −2.5pp | 0.79 |
+| 参照：v9+scale 诊断 | 20.3% | 19.4% | −0.9pp | — |
+
+**裁决（2026-08-01）**：数据扩容 3.2× + 线性锚定把 holdout 从 30.3
+拉到 **22.6**（-7.7pp），泛化差距 8.7→2.7pp——Phase 1 的「方差大、
+数据不够」判断成立。m3_v5 零补偿、零外部时长标签，已与生产 v9 的
+holdout 持平（22.6 vs 21.5），train 反超 4.1pp。holdout 0/20 全错、
+16/20 低于 30%。epoch 数只有 m3_v4 的 ~1/3（250 vs ~800），如需再压
+可加步数。checkpoint: `m3_v5_final.pt`。
+
+**0027 复检（m3_v5）**：线性锚生效——uang2 37.6→28.8 帧（回到 v1 的
+29.8 水平），但 ASR 仍读出「唐代王王维」，复读**未消失**。根因升级为
+数据层问题，见下节 m3_v6。
+
+### v9 Holdout 泛化评估
+
+| 集合 | CER | 说明 |
+|------|-----|------|
+| Train (30首) | 24.0% | 与之前评估一致 |
+| **Holdout (20首)** | **21.5%** | 未见过的诗 |
+| Gap | **-2.5pp** | 无过拟合 |
+
+模型完全没有过拟合——holdout CER 甚至比 train 还低（小样本统计波动）。
+300 首训练数据对泛化足够，24% CER 是真实泛化能力而非记忆。
+
+### ONNX 导出精度验证
+
+| 条件 | CER | 说明 |
+|------|-----|------|
+| PyTorch (30首) | 24.0% | 训练 forward path |
+| **ONNX E2E (30首)** | **24.0%** | ONNX FS2 + HiFiGAN |
+| Gap | **0.0pp** | 无精度损失 |
+
+OnnxAttention（手动 Q/K/V + matmul）权重拷贝正确，ONNX Runtime 算子融合无副作用。
+之前测的 32% CER 是因 `train[:10]` 只取了 10 首，样本量不足。
+ONNX 模型 production-ready：35MB FS2 + 50MB HiFiGAN = 85MB。
+
+#### m3_v6 ONNX 导出（2026-08-01，部署 task #12 第 1 步）
+
+复用 v9 的 `Fs2OnnxWrapper`（架构相同，只是训练损失权重与 dot-fix manifest 不同），
+脚本 `scripts/export_m3v6_onnx.py`，在**同一 holdout-20 / train-30（seed 42）协议**上
+做 PyTorch↔ONNX 全链路对齐（FS2 ONNX → 反归一化 → HiFiGAN → ASR → CER）：
+
+| 条件 | Train (30) | Holdout (20) |
+|------|-----------|-------------|
+| PyTorch (m3_v6 eval) | 20.6% | 21.0% |
+| **ONNX E2E** | **20.6%** | **21.0%** |
+| Gap | **−0.0pp** | **−0.0pp** |
+
+零精度损失，与 v9 导出一致。产物在 `models/sufei_fs2_onnx_m3v6/`：
+`fastspeech2_sufei_m3v6.onnx`(35.6MB, fp32) + `norm_stats.npz`(1.1KB) + `phone_id_map.txt`(2.1KB)。
+实测 fp32 包体 = FS2 35.6MB + HiFiGAN 52.0MB = **87.6MB**（即之前记的「85MB」）。
+下一步：fp16 量化（→~44MB）+ 精度复核。
+
+#### m3_v6 fp16 量化（2026-08-01，部署 task #12 第 2 步）
+
+脚本 `scripts/fp16_m3v6_onnx.py`（`onnxconverter_common.float16`，`keep_io_types=True`
+保持 I/O fp32，glue 代码零改动）。**坑**：length regulator 的 `repeat_interleave`
+导出成 `SplitToSequence`/`ConcatFromSequence`（序列类型张量），转换器不会把 fp16 传播进
+序列元素类型 → 加载报 `seq(float) != seq(float16)`。修复：`op_block_list` 把序列算子族
+钉在 fp32（它们无权重，不占体积；转换器自动在边界插 Cast），并在 `to_fp16` 内加 load 自检。
+
+同一 holdout-20 / train-30 协议复评（fp32 基线 train 20.6 / holdout 21.0）：
+
+| 配置 | Train | Holdout | 包体 |
+|------|-------|---------|------|
+| fp32 基线 | 20.6% | 21.0% | 87.6 MB |
+| A: FS2-16 + HiFi-32 | 20.5% (−0.1) | 22.1% (+1.1) | 69.9 MB |
+| **B: 双 fp16** | **20.3% (−0.3)** | **21.9% (+0.9)** | **50.3 MB** |
+
+FS2 fp16 mel MAE=0.0004（几乎无损）；holdout +1pp 属 20 首噪声 + fp16 对 `exp(log_dur)`
+取整使 3/10 首总帧长 ±1 帧（12.5ms，不可闻）。HiFiGAN fp16 无害（B 的 holdout 反而优于 A）。
+**选定 config B（双 fp16，50.3MB，较 fp32 −43%）**。
+
+**部署打包**（`scripts/package_m3v6_deploy.py` → `models/sufei_m3v6_deploy/`）：
+config-B 文件重命名为 app 期望名 + sha256 完整性清单：
+`fastspeech2_sufei.onnx`(17.9MB) + `hifigan_csmsc.onnx`(32.4MB) + `phone_id_map.txt` +
+`norm_stats.npz` + `SHA256SUMS.txt` + `manifest.json`（含版本/量化/CER/G2P 约定）。
+已 fetch 到本地 `tools/tts-training/models/sufei_m3v6_deploy/`（.onnx 已 gitignore）。
+fp16 试听样本（A/B/fp32 对比）在 `data/m3_v6_fp16_eval/`。
+
+#### app 侧集成（2026-08-01，已改，待编译/端侧验证）
+
+发现 **文本格式失配**（比 · 约定更关键）：`DetailScreen.kt` 原 narText =
+`title+dynasty+author` 空拼接 + content（去换行）——**缺** title 后的「，」和 author 后的「。」，
+与 m3_v6 训练格式 `{title}，{dynasty}{author}。{content_flat}` 不符（dynasty+author
+glued 是对的，正好对齐 ·-drop）。已改两处：
+1. `DetailScreen.kt` narText → `"${title}，${dynasty}${author}。" + content.replace("\n","").replace(" ","")`；
+2. `ChineseG2p.kt` PUNCT_MAP 删掉 `"·"→"。"`（· 不产 token）。
+`<eos>` 已核对一致（训练 G2P line 169 `("<eos>", None)` = Kotlin `phones.add("<eos>")`）。
+
+#### 部署方向决策（2026-08-01，用户拍板；实现留待后续）
+
+**交付形态**：最终给用户是**内嵌**（离线即用），但内嵌在 **CI/CD 构建时**完成，
+git 仓库**不追踪**这 50MB 模型（避免二进制进 git 历史的永久负担）。
+**制品托管**：**HuggingFace**（pinned revision + sha256，公开可复现）。
+
+**落地方案（已设计，未实现）**：
+1. Gradle `fetchTtsModels` 任务：构建时从 HF 拉 pinned 制品 → 校验 sha256 →
+   解到 `app/src/main/assets/models/nar/`（已存在且 sha256 匹配则跳过），挂在
+   `merge*Assets` 前。**CI 与本地 fresh clone 行为一致**（clone 后首次构建自动补齐）。
+2. `app/src/main/assets/models/nar/` 加入 `.gitignore`。
+3. 加载：首启从 assets 拷到 `filesDir/models/nar/`，复用现有**已在联想真机验证过**的
+   `createSession(path)`，**零引擎改动**（代价 ~50MB 设备存储；比改 `byte[]` 加载低风险）。
+4. release APK +~50MB（用户接受）。
+
+**状态：推进暂停，留待后续。**
+- 已完成：ONNX 导出(0.0pp) / fp16 config B(50.3MB) / 打包+sha256 /
+  app 文本格式失配修复 + G2P ·-同步（已编译通过，**改动在工作树中，未 commit**）。
+- 待做：① HF 仓库 + 上传 `models/sufei_m3v6_deploy/`（pinned + sha256）；
+  ② `fetchTtsModels` gradle 任务；③ 首启 assets→filesDir 拷贝；
+  ④ 端侧 E2E 复验（Kotlin↔Python G2P 逐音素 parity 仅 v9 验过，本次动了 ·+文本格式）。
+
+### 端侧部署验证（Lenovo TB-Q706F, Android 13）
+
+| 步骤 | 结果 |
+|------|------|
+| 模型推送 | `getExternalFilesDir/models/nar/`（app 私有目录） |
+| 初始崩溃 | `/sdcard/` 路径 EACCES (errno 13) → 改用 app 私有目录 |
+| G2P | 176 音素 ID（`suFei=true`） |
+| FS2 推理 | mel 1406×80 |
+| HiFiGAN | 421,800 samples ≈ 17.6s |
+| AudioTrack | 正常播放→释放 |
+| 模型大小 | 35MB + 50MB = **85MB** |
+
+**端侧 TTS 管线完整跑通。**
+
 ### 实验全览（同条件对比）
 
-| 实验 | 数据 | 训练方式 | pred-all CER | 关键变量 |
-|------|------|---------|-------------|---------|
-| v2 | re-extracted mel, F0 bug, MFA dur | full_e2e | 77.5% | 旧管线 baseline |
-| v3 | 同上 | phoneme loss | 84.2% | − |
-| v4 | 同上 | alternating | 95.3% | − |
-| v5 | 同上 | mulgate | 83.2% | − |
-| v6 | 同上 | FiLM | 86.5% | − |
-| v7 | teacher_mel, F0 fixed, MFA dur | classic | 96.9% | dur gap 崩溃 |
-| v8 | 同 v7 | full_e2e | 56.5% | 帧级错位 |
-| **v9** | **teacher_mel, F0 fixed, teacher dur** | **classic** | **24.0%** | **最终方案** |
+| 实验 | 数据 | 训练方式 | pred-all CER | Holdout CER | 关键变量 |
+|------|------|---------|-------------|-------------|---------|
+| v2 | re-extracted mel, F0 bug, MFA dur | full_e2e | 77.5% | ~99% | 旧管线 baseline |
+| v3 | 同上 | phoneme loss | 84.2% | — | − |
+| v4 | 同上 | alternating | 95.3% | — | − |
+| v5 | 同上 | mulgate | 83.2% | — | − |
+| v6 | 同上 | FiLM | 86.5% | — | − |
+| v7 | teacher_mel, F0 fixed, MFA dur | classic | 96.9% | — | dur gap 崩溃 |
+| v8 | 同 v7 | full_e2e | 56.5% | — | 帧级错位 |
+| **v9** | **teacher_mel, F0 fixed, teacher dur** | **classic** | **24.0%** | **21.5%** | **当前生产** |
+| v10a | teacher_mel, MAS dur 展开 | MAS align | 95.5% | 98.4% | dur 坍缩（裸 Viterbi 对齐漂移） |
+| v10b | teacher_mel, pred dur 展开, MAS target | MAS align | — (killed) | — | 损失帧错位，mel 平台 0.25 |
+| v10c | + 先验(仅DP) + fsum, MAS dur 展开 | MAS align | — (killed) | — | 双稳态：3 次运行 fsum 2.6/7.5/13 |
+| v10d | + 卷积 aligner + 先验入 softmax + 闸门 | MAS align | 29.3% / 20.7%(×1.25) | 30.2% / 24.6%(×1.25) | 首个稳定 MAS；补偿后 train 达天花板 |
+| v9+scale | teacher dur + 推理 dur×1.27 | classic | **20.3%** | **19.4%** | 全局最优，待进生产 ONNX |
+| **v10f** | v10d + warmup 4000 + 30k 步 | MAS align | 29.0% / **20.7%**(×1.25) | 28.2% / **22.6%**(×1.25) | **M2 达成**；闸门 step 4000 开(ema=0.066)，零标签 holdout 22.6% |
+
+**M2 终局（2026-07-31）**：MAS 自学对齐 + 补偿后，train 与 v9+scale 平价
+（20.7 vs 20.3，均≈天花板 20.2），holdout 差 3.2pp（22.6 vs 19.4）——
+这是"零外部时长标签"的当前溢价，且已低于 v9 原始版的 21.5% 附近。
+成熟对齐（warmup 4000）从 5.2pp 收到 3.2pp。checkpoint: `v10f_final.pt`。
+遗留改进项：checkpoint 文件名加 run 名（v10f 曾覆盖 v10d 权重）；
+fsum 的 8 次 CTC 批量化（当前 10.7 step/s → 预计 15+）。
 
 ### 远程 manifest 损坏发现 + 重训（v2）
 
@@ -483,5 +966,10 @@ n_mels=80, fmin=80, fmax=7600
 | [ADR-0006](../../docs/decisions/ADR-0006-nar-tts-architecture.md) | NAR TTS 架构选择 |
 | [ADR-0007](../../docs/decisions/ADR-0007-on-device-nar-tts-paddlespeech.md) | PaddleSpeech 生产方案 |
 | [ADR-0008](../../docs/decisions/ADR-0008-fs2-from-scratch-generalization-ceiling.md) | 从零训练 FS2 泛化失败 |
+| [ADR-0009](../../docs/decisions/ADR-0009-mas-duration-learning.md) | MAS duration learning |
 | [KNOWN_ISSUES.md](KNOWN_ISSUES.md) | 已知问题与修复记录 |
 | [NAR_INTERFACE_SPEC.md](NAR_INTERFACE_SPEC.md) | NAR 接口规范 |
+| `scripts/mas.py` | MAS DP 算法 + AlignmentModule |
+| `scripts/eval_mas_alignment.py` | M1: MAS 对齐质量验证 |
+| `scripts/nar_train_align.py` | M2: MAS 联合训练 |
+| `scripts/eval_v10.py` | v10 CER 评估 |

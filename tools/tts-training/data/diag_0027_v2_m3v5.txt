@@ -1,0 +1,15 @@
+[full] m3_cosyvoice_phase1/poem_0027_c0.wav: 送元二使安西渭城曲，唐代王维渭城朝雨浥轻尘，客舍青青，柳色新，劝君更尽一杯酒，西出阳关无故人。
+[tangdai 4.2-5.25s] m3_cosyvoice_phase1/poem_0027_c0.wav: 渭城朝雨。
+[wangwei 5.25-6.15s] m3_cosyvoice_phase1/poem_0027_c0.wav: 已清晨。
+[wide 4.2-6.45s] m3_cosyvoice_phase1/poem_0027_c0.wav: 渭城朝雨浥轻尘。
+
+[full] m3_v5_eval/train_poem_0027.wav: 送元二使安西渭城区，唐代王王维、渭城朝雨浥轻尘，客舍青青，柳色新，劝君更尽一杯酒，西出阳关无故人。
+[tangdai 4.2-5.25s] m3_v5_eval/train_poem_0027.wav: 在成长与。
+[wangwei 5.25-6.15s] m3_v5_eval/train_poem_0027.wav: 一清晨。
+[wide 4.2-6.45s] m3_v5_eval/train_poem_0027.wav: 北城朝雨浥轻尘。
+
+[full] m3_v4_eval/train_poem_0027.wav: 送元二使安西渭城曲唐代王王维渭城朝雨浥轻尘，客舍青青，柳色新。劝君更君你一杯酒，西出阳关无故人。
+[tangdai 4.2-5.25s] m3_v4_eval/train_poem_0027.wav: 渭争朝雨。
+[wangwei 5.25-6.15s] m3_v4_eval/train_poem_0027.wav: 已清晨。
+[wide 4.2-6.45s] m3_v4_eval/train_poem_0027.wav: 渭城朝雨浥轻尘。
+
