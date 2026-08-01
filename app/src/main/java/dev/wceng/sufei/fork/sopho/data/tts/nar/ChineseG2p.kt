@@ -22,7 +22,9 @@ private val FINAL_FIX = mapOf(
 
 private val PUNCT_MAP = mapOf(
     "，" to "，", "。" to "。", "？" to "？", "！" to "！",
-    "；" to "，", "：" to "，", "·" to "。",
+    "；" to "，", "：" to "，",
+    // "·" intentionally omitted → emits no token, matching the m3_v6 dot-token
+    // fix (CosyVoice read 朝代·作者 connected, so '·' must not inject a pause).
 )
 
 object ChineseG2p {

@@ -185,8 +185,12 @@ fun DetailContent(
                         }
                         // fork-sopho: NAR TTS button
                         IconButton(onClick = {
-                            val narText = listOf(poem.title, poem.dynasty, poem.author).joinToString("") +
-                                poem.content.replace("\n", "")
+                            // fork-sopho: match m3_v6 training text format
+                            // build_text = "{title}，{dynasty}{author}。{content_flat}"
+                            // (dynasty+author glued: the '·' separator emits no token, see ChineseG2p;
+                            //  content_flat = content with newlines/spaces stripped, its own ，。 kept).
+                            val narText = "${poem.title}，${poem.dynasty}${poem.author}。" +
+                                poem.content.replace("\n", "").replace(" ", "")
                             if (isNarTtsPlaying) {
                                 onNarTts("")  // empty string stops
                             } else {

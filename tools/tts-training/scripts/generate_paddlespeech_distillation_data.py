@@ -71,10 +71,16 @@ def load_phone_id_map():
     return phone_map
 
 
-def text_to_phonemes(text):
-    """Convert Chinese text to PaddleSpeech-style phoneme sequence."""
+def text_to_phonemes(text, punct_map=None):
+    """Convert Chinese text to PaddleSpeech-style phoneme sequence.
+
+    punct_map overrides PUNCT_TO_PHONE; chars absent from the map emit no
+    token (e.g. drop "·" for sources that read 朝代·作者 connected).
+    """
     from pypinyin import pinyin, Style
 
+    if punct_map is None:
+        punct_map = PUNCT_TO_PHONE
     result = []
     for char in text:
         if "\u4e00" <= char <= "\u9fff":
@@ -157,8 +163,8 @@ def text_to_phonemes(text):
                         break
                 result.append((py_base + tone, char))
 
-        elif char in PUNCT_TO_PHONE:
-            result.append((PUNCT_TO_PHONE[char], char))
+        elif char in punct_map:
+            result.append((punct_map[char], char))
 
     result.append(("<eos>", None))
     return result
