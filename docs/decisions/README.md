@@ -78,3 +78,4 @@ constraints on future work, etc.).
 | [0006](ADR-0006-nar-tts-architecture.md) | NAR TTS architecture (FastSpeech 2 + HiFi-GAN) | Accepted | 2026-07-27 |
 | [0007](ADR-0007-on-device-nar-tts-paddlespeech.md) | On-device NAR TTS via PaddleSpeech FS2 + HiFi-GAN ONNX | Accepted | 2026-07-28 |
 | [0008](ADR-0008-fs2-from-scratch-generalization-ceiling.md) | From-scratch FS2 training: generalization ceiling | Accepted | 2026-07-29 |
+| [0009](ADR-0009-mas-duration-learning.md) | MAS-based duration learning for data-source independence | Accepted | 2026-07-31 |
