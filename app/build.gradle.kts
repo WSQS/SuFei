@@ -150,9 +150,8 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
-    // MOSS-TTS-Nano ONNX Runtime (exploration, issue #37)
+    // ONNX Runtime for on-device NAR TTS (m3_v6 FastSpeech2 + HiFi-GAN)
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.27.0")
-    testImplementation("com.microsoft.onnxruntime:onnxruntime:1.27.0")
     testImplementation("org.json:json:20240303")
 }
 
