@@ -39,3 +39,11 @@
 # nlp-common - 可能涉及的分词相关依赖
 -keep class com.github.houbb.nlp.common.** { *; }
 -dontwarn com.github.houbb.nlp.common.**
+
+# ONNX Runtime (on-device NAR TTS) — the native library resolves these classes
+# and their members via JNI FindClass / GetMethodID by hardcoded name, so R8 must
+# not rename or strip them. Without this a minified release build aborts at
+# OrtSession.createSession ("JNI DETECTED ERROR ... java_class == null").
+-keep class ai.onnxruntime.** { *; }
+-keepclassmembers class ai.onnxruntime.** { *; }
+-dontwarn ai.onnxruntime.**
