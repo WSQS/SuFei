@@ -40,6 +40,10 @@ object NarTtsModule {
     ): NarOnnxEngine {
         ChineseG2p.init(context)
 
+        // fork-sopho: materialize the CI-embedded model (assets/models/nar) to
+        // filesDir on first launch, so the filesystem-path loader below finds it.
+        NarModelAssets.ensureExtracted(context)
+
         val candidates = listOf(
             java.io.File(context.getExternalFilesDir(null), "models/nar"),
             java.io.File(android.os.Environment.getExternalStorageDirectory(), "SuFei/models/nar"),

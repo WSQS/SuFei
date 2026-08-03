@@ -34,6 +34,15 @@ object ChineseG2p {
     fun init(context: Context) {
         if (pinyinDict != null) return
         val json = context.assets.open("pinyin_dict.json").bufferedReader().use { it.readText() }
+        initFromJson(json)
+    }
+
+    /**
+     * Test seam: load the pinyin dictionary from a raw JSON string, so the G2P
+     * can be exercised in JVM unit tests without an Android [Context]. Idempotent.
+     */
+    internal fun initFromJson(json: String) {
+        if (pinyinDict != null) return
         val obj = JSONObject(json)
         pinyinDict = obj.keys().asSequence().associateWith { obj.getString(it) }
     }

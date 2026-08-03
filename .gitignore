@@ -45,4 +45,9 @@ tools/tts-training/output/
 tools/tts-training/logs/
 tools/tts-training/tmp/
 
+# TTS deploy artifact — embedded into the APK at CI/CD build time by the
+# `fetchTtsModels` Gradle task (fetched from HuggingFace, verified by sha256).
+# Never tracked in git; the source of truth is the pinned HF revision.
+app/src/main/assets/models/nar/
+
 # Local setup notes (not tracked)
