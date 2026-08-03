@@ -22,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.filled.RecordVoiceOver  // fork-sopho
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -126,7 +127,11 @@ fun DetailScreen(
         },
         onTtsToggle = { sentences ->
             viewModel.toggleTts(sentences)
-        }
+        },
+        isNarTtsPlaying = viewModel.isNarTtsPlaying.collectAsState().value,  // fork-sopho
+        onNarTts = { text ->  // fork-sopho
+            if (text.isEmpty()) viewModel.stopTts() else viewModel.speakNar(text)
+        },
     )
 }
 
@@ -142,7 +147,9 @@ fun DetailContent(
     onDynastyClick: (String) -> Unit,
     onPinToWidget: () -> Unit,
     onFavoriteToggle: (Boolean) -> Unit,
-    onTtsToggle: (List<String>) -> Unit
+    onTtsToggle: (List<String>) -> Unit,
+    isNarTtsPlaying: Boolean = false,  // fork-sopho
+    onNarTts: (String) -> Unit = {},   // fork-sopho
 ) {
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
 
@@ -174,6 +181,26 @@ fun DetailContent(
                                 imageVector = if (isTtsPlaying) Icons.Default.Stop else Icons.AutoMirrored.Filled.VolumeUp,
                                 contentDescription = if (isTtsPlaying) actionTtsStop else actionTtsStart,
                                 tint = if (isTtsPlaying) MaterialTheme.colorScheme.primary else LocalContentColor.current
+                            )
+                        }
+                        // fork-sopho: NAR TTS button
+                        IconButton(onClick = {
+                            // fork-sopho: match m3_v6 training text format
+                            // build_text = "{title}，{dynasty}{author}。{content_flat}"
+                            // (dynasty+author glued: the '·' separator emits no token, see ChineseG2p;
+                            //  content_flat = content with newlines/spaces stripped, its own ，。 kept).
+                            val narText = "${poem.title}，${poem.dynasty}${poem.author}。" +
+                                poem.content.replace("\n", "").replace(" ", "")
+                            if (isNarTtsPlaying) {
+                                onNarTts("")  // empty string stops
+                            } else {
+                                onNarTts(narText)
+                            }
+                        }) {
+                            Icon(
+                                imageVector = if (isNarTtsPlaying) Icons.Default.Stop else Icons.Default.RecordVoiceOver,
+                                contentDescription = "NAR TTS",
+                                tint = if (isNarTtsPlaying) MaterialTheme.colorScheme.primary else LocalContentColor.current
                             )
                         }
                         IconButton(onClick = onPinToWidget) {
