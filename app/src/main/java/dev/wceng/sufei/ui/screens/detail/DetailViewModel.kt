@@ -82,22 +82,31 @@ class DetailViewModel @AssistedInject constructor(
         if (isTtsPlaying.value) {
             ttsManager.stop()
         } else {
+            narTtsPlayer.stop()  // fork-sopho: system TTS and NAR are mutually exclusive
             ttsManager.speak(sentences)
         }
     }
 
+    /** Stop both engines — used on screen dispose / cleanup. */
     fun stopTts() {
         ttsManager.stop()
         narTtsPlayer.stop()  // fork-sopho
     }
 
     /**
-     * Speak using NAR TTS (fork-sopho). Falls back gracefully if models not loaded.
+     * Speak using NAR TTS (fork-sopho). Stops system TTS first so the two
+     * engines never overlap. Falls back gracefully if models not loaded.
      */
     fun speakNar(text: String) {  // fork-sopho
+        ttsManager.stop()
         viewModelScope.launch {
             narTtsPlayer.speak(text)
         }
+    }
+
+    /** Stop only NAR TTS, leaving system TTS untouched (fork-sopho). */
+    fun stopNar() {  // fork-sopho
+        narTtsPlayer.stop()
     }
 
     val isNarTtsPlaying = narTtsPlayer.isPlaying  // fork-sopho

@@ -129,9 +129,8 @@ fun DetailScreen(
             viewModel.toggleTts(sentences)
         },
         isNarTtsPlaying = viewModel.isNarTtsPlaying.collectAsState().value,  // fork-sopho
-        onNarTts = { text ->  // fork-sopho
-            if (text.isEmpty()) viewModel.stopTts() else viewModel.speakNar(text)
-        },
+        onNarTtsStart = { text -> viewModel.speakNar(text) },  // fork-sopho
+        onNarTtsStop = { viewModel.stopNar() },  // fork-sopho
     )
 }
 
@@ -148,8 +147,9 @@ fun DetailContent(
     onPinToWidget: () -> Unit,
     onFavoriteToggle: (Boolean) -> Unit,
     onTtsToggle: (List<String>) -> Unit,
-    isNarTtsPlaying: Boolean = false,  // fork-sopho
-    onNarTts: (String) -> Unit = {},   // fork-sopho
+    isNarTtsPlaying: Boolean = false,        // fork-sopho
+    onNarTtsStart: (String) -> Unit = {},    // fork-sopho
+    onNarTtsStop: () -> Unit = {},           // fork-sopho
 ) {
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
 
@@ -185,16 +185,16 @@ fun DetailContent(
                         }
                         // fork-sopho: NAR TTS button
                         IconButton(onClick = {
-                            // fork-sopho: match m3_v6 training text format
-                            // build_text = "{title}，{dynasty}{author}。{content_flat}"
-                            // (dynasty+author glued: the '·' separator emits no token, see ChineseG2p;
-                            //  content_flat = content with newlines/spaces stripped, its own ，。 kept).
-                            val narText = "${poem.title}，${poem.dynasty}${poem.author}。" +
-                                poem.content.replace("\n", "").replace(" ", "")
                             if (isNarTtsPlaying) {
-                                onNarTts("")  // empty string stops
+                                onNarTtsStop()
                             } else {
-                                onNarTts(narText)
+                                // fork-sopho: match m3_v6 training text format
+                                // build_text = "{title}，{dynasty}{author}。{content_flat}"
+                                // (dynasty+author glued: the '·' separator emits no token, see ChineseG2p;
+                                //  content_flat = content with newlines/spaces stripped, its own ，。 kept).
+                                val narText = "${poem.title}，${poem.dynasty}${poem.author}。" +
+                                    poem.content.replace("\n", "").replace(" ", "")
+                                onNarTtsStart(narText)
                             }
                         }) {
                             Icon(
