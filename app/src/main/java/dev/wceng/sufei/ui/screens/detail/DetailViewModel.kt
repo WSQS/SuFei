@@ -12,6 +12,7 @@ import dev.wceng.sufei.data.model.UserPreferences
 import dev.wceng.sufei.data.repository.PoemRepository
 import dev.wceng.sufei.data.repository.UserPreferencesRepository
 import dev.wceng.sufei.data.tts.TtsManager
+import dev.wceng.sufei.fork.sopho.data.tts.nar.NarTtsPlayer  // fork-sopho
 import dev.wceng.sufei.ui.navigation.Detail
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -24,6 +25,7 @@ class DetailViewModel @AssistedInject constructor(
     private val poemRepository: PoemRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val ttsManager: TtsManager,
+    private val narTtsPlayer: NarTtsPlayer,  // fork-sopho
     @Assisted val detail: Detail
 ) : ViewModel() {
 
@@ -80,18 +82,40 @@ class DetailViewModel @AssistedInject constructor(
         if (isTtsPlaying.value) {
             ttsManager.stop()
         } else {
+            narTtsPlayer.stop()  // fork-sopho: system TTS and NAR are mutually exclusive
             ttsManager.speak(sentences)
         }
     }
 
+    /** Stop both engines — used on screen dispose / cleanup. */
     fun stopTts() {
         ttsManager.stop()
+        narTtsPlayer.stop()  // fork-sopho
     }
+
+    /**
+     * Speak using NAR TTS (fork-sopho). Stops system TTS first so the two
+     * engines never overlap. Falls back gracefully if models not loaded.
+     */
+    fun speakNar(text: String) {  // fork-sopho
+        ttsManager.stop()
+        viewModelScope.launch {
+            narTtsPlayer.speak(text)
+        }
+    }
+
+    /** Stop only NAR TTS, leaving system TTS untouched (fork-sopho). */
+    fun stopNar() {  // fork-sopho
+        narTtsPlayer.stop()
+    }
+
+    val isNarTtsPlaying = narTtsPlayer.isPlaying  // fork-sopho
 
     override fun onCleared() {
         super.onCleared()
         _poetIdChannel.close()
         ttsManager.release()
+        narTtsPlayer.stop()  // fork-sopho
     }
 
     @AssistedFactory

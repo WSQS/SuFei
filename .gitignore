@@ -25,3 +25,17 @@ keystore.properties
 
 # Local instructions
 CLAUDE.local.md
+
+# Stray wandb offline-run cache from repo-root training runs; never tracked
+wandb/
+
+# tools/ is a nested, independently-versioned repo checked out inside this one
+# (github.com/WSQS/sopho-poetry-tts-train at tools/tts-training) plus local-only
+# training artifacts. Never tracked by the SuFei repo — ignore the whole dir so
+# it can't be accidentally added as an embedded gitlink.
+/tools/
+
+# TTS deploy artifact — embedded into the APK at CI/CD build time by the
+# `fetchTtsModels` Gradle task (fetched from HuggingFace, verified by sha256).
+# Never tracked in git; the source of truth is the pinned HF revision.
+app/src/main/assets/models/nar/

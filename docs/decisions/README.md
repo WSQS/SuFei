@@ -75,3 +75,7 @@ constraints on future work, etc.).
 | [0003](ADR-0003-jsonl-driven-builtin-data.md) | JSONL-driven built-in data with Room persistence | Accepted | 2026-07-21 |
 | [0004](ADR-0004-composite-progress-key.md) | Per-path composite progress key `(pathId, poemId)` | Accepted | 2026-07-21 |
 | [0005](ADR-0005-original-book-ordering.md) | Original-book ordering via external JSONL + sourceUrl join | Accepted | 2026-07-22 |
+| [0006](ADR-0006-nar-tts-architecture.md) | NAR TTS architecture (FastSpeech 2 + HiFi-GAN) | Accepted | 2026-07-27 |
+| [0007](ADR-0007-on-device-nar-tts-paddlespeech.md) | On-device NAR TTS via PaddleSpeech FS2 + HiFi-GAN ONNX | Accepted | 2026-07-28 |
+| [0008](ADR-0008-fs2-from-scratch-generalization-ceiling.md) | From-scratch FS2 training: generalization ceiling | Accepted | 2026-07-29 |
+| [0009](ADR-0009-mas-duration-learning.md) | MAS-based duration learning for data-source independence | Accepted | 2026-07-31 |
